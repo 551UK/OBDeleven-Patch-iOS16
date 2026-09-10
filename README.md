@@ -6,47 +6,40 @@ Rootless Dopamine/ElleKit tweak for **regular OBDeleven 1.11.0** (`com.voltasit.
 
 OBDeleven 1.11.0 can stop at the full-screen **Update Required** page on launch.
 
-Version 1.0.2 uses three client-side bypasses for the exact inspected 1.11.0 build:
+Version **1.0.5** keeps the working v1.0.4 method. It does not force the app into a fake ready state and does not patch `IntroPresenter`, `AppUsabilityState`, jump tables, or `ForceUpdateViewController`.
 
-1. Patches the build-version result in `ShouldUpdateApplicationUseCase.swift`.
-2. Forces `IntroPresenter.startUsabilityStateCheck()` to dispatch state `1` (`appIsReadyToBeUsed`) instead of state `2` (`appUpdateIsRequired`).
-3. Hooks UIKit presentation as a final failsafe and refuses to present/push `ForceUpdateViewController`.
+Instead, the tweak lets OBDeleven's original startup/update logic run normally while making the old app report a newer version.
 
-The binary patches perform exact four-byte checks before writing, so an unknown OBDeleven build is not blindly modified.
+By default it reports:
 
-## Key reverse-engineered locations
+- `CFBundleShortVersionString` = `2.10.0`
+- `CFBundleVersion` = `2147483647`
+- `x-mobile-app-version` request header = `2.10.0`
 
-### Version decision
+The short version is spoofed through the main `NSBundle` APIs and `CFBundleGetValueForInfoDictionaryKey`, while outgoing `NSURLSession` requests receive the same selected version in the `x-mobile-app-version` header.
 
-Main-image offset `0x155BE8`:
+## Configurable version
 
-```
-14 A5 88 9A    cinc x20, x8, lt
-```
+Version **1.0.5** adds an **OBDeleven Update Bypass** page in the iOS Settings app.
 
-becomes:
+The **Spoofed Version** field defaults to `2.10.0`. If OBDeleven later requires a newer app version, enter that version in Settings instead of rebuilding the tweak.
 
-```
-F4 03 08 AA    mov x20, x8
-```
+The selected value is used for both:
 
-### Launch usability state
+- `CFBundleShortVersionString`
+- `x-mobile-app-version`
 
-`IntroPresenter.startUsabilityStateCheck()` loads the returned state at main-image offset `0x15E778`:
+The build-number spoof remains fixed at `2147483647`.
 
-```
-D7 4E 40 F9    ldr x23, [x22, #0x98]
-```
+After changing the value, fully close OBDeleven and reopen it.
 
-Version 1.0.2 replaces that with:
+The Settings entry uses the official OBDeleven App Store icon when the release package is built.
 
-```
-37 00 80 D2    mov x23, #1
-```
+## Why this method is used
 
-State `1` is the app's normal `appIsReadyToBeUsed` path. State `2` is `appUpdateIsRequired`, which leads to `ForceUpdateViewController`.
+Earlier builds experimented with directly modifying the app's update state and forcing `appIsReadyToBeUsed`. That could bypass the update screen but also skip normal startup work and leave OBDeleven sitting on its static launch icon.
 
-The older v1.0.1 jump-table redirect at `0x15EB40` is retained as another binary failsafe.
+v1.0.4 removed those control-flow patches. v1.0.5 keeps that same working approach and only adds configurability.
 
 ## Target
 
@@ -63,10 +56,10 @@ The older v1.0.1 jump-table redirect at `0x15EB40` is retained as another binary
 make clean package FINALPACKAGE=1
 ```
 
+The GitHub Actions release build also retrieves the official OBDeleven App Store artwork and packages it as the Settings icon.
+
 ## Install
 
-Install the rootless `.deb` in Sileo or Zebra, fully close OBDeleven from the app switcher, then reopen it.
+Install the rootless `.deb` in Sileo or Zebra, make sure tweak injection is allowed for OBDeleven, fully close OBDeleven from the app switcher, then reopen it.
 
-If v1.0.2 still shows the untouched Update Required controller, first verify that tweak injection is actually enabled for OBDeleven (for example in Choicy), because the UIKit failsafe runs only when this dylib is loaded into the app.
-
-This tweak only bypasses the client-side forced-update gate. Old server APIs or features may still be incompatible with OBDeleven 1.11.0.
+This tweak bypasses the forced client-version gate. Old server APIs or individual features can still become incompatible with OBDeleven 1.11.0 independently of the update screen.
