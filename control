@@ -2,8 +2,8 @@ Package: com.551.obdelevenupdatebypass
 Name: OBD11 & OBD11 VAG Bypass
 Version: 1.1.0
 Architecture: iphoneos-arm64
-Description: Bypasses app update checks in OBDeleven and OBDeleven VAG. Separate version controls for each app, with Respring and a GitHub link.
 Maintainer: 551
 Author: 551
 Section: Tweaks
 Depends: firmware (>= 16.0), ellekit, preferenceloader, com.opa334.libsandy
+Description: Bypasses app update checks in OBDeleven and OBDeleven VAG. Separate version controls for each app, with Respring and a GitHub link.
