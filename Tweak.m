@@ -3,7 +3,7 @@
 #include <substrate.h>
 
 /*
- * OBDeleven Update Bypass v1.0.6
+ * OBDeleven Update Bypass v1.0.7
  * Target: regular OBDeleven 1.11.0
  * Bundle: com.voltasit.obdeleven.ios.basic
  *
@@ -12,10 +12,8 @@
  *   - spoof CFBundleVersion with the known-working high build value
  *   - spoof x-mobile-app-version on outgoing NSURLSession requests
  *
- * v1.0.6 fixes preference handling. The Settings value is now the single
- * source of truth for the runtime spoof. If it is set back to the app's real
- * installed version (1.11.0), every spoof is disabled and the original bundle
- * values/network request are allowed through unchanged.
+ * Settings are the single source of truth. Turning the tweak off, or setting
+ * Spoofed Version back to the app's real 1.11.0, disables every spoof path.
  */
 
 static NSString *const kPreferencesDomain = @"com.551.obdelevenupdatebypass";
@@ -61,21 +59,15 @@ static NSString *sanitizedVersionString(id candidate) {
 }
 
 static id copyPreferenceValue(CFStringRef key) {
-    CFPropertyListRef raw = CFPreferencesCopyValue(
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
+    CFPropertyListRef raw = CFPreferencesCopyAppValue(
         key,
-        (__bridge CFStringRef)kPreferencesDomain,
-        kCFPreferencesCurrentUser,
-        kCFPreferencesAnyHost);
+        (__bridge CFStringRef)kPreferencesDomain);
     if (!raw) return nil;
     return CFBridgingRelease(raw);
 }
 
 static void reloadPreferences(void) {
-    CFPreferencesSynchronize(
-        (__bridge CFStringRef)kPreferencesDomain,
-        kCFPreferencesCurrentUser,
-        kCFPreferencesAnyHost);
-
     id enabledValue = copyPreferenceValue(CFSTR("enabled"));
     id versionValue = copyPreferenceValue(CFSTR("spoofedVersion"));
 
@@ -288,7 +280,7 @@ static void OBDelevenUpdateBypassInit(void) {
         installBundleSpoofs();
         installNetworkSpoofs();
 
-        NSLog(@"[OBDelevenUpdateBypass] v1.0.6 loaded; enabled=%d selected=%@ actual=%@ active=%d build=%@ header=%@",
+        NSLog(@"[OBDelevenUpdateBypass] v1.0.7 loaded; enabled=%d selected=%@ actual=%@ active=%d build=%@ header=%@",
               gEnabled,
               currentSpoofedShortVersion(),
               gActualShortVersion,
