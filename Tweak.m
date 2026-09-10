@@ -3,28 +3,95 @@
 #include <substrate.h>
 
 /*
- * OBDeleven Update Bypass v1.0.4
+ * OBDeleven Update Bypass v1.0.5
  * Target: regular OBDeleven 1.11.0
  * Bundle: com.voltasit.obdeleven.ios.basic
  *
- * This version deliberately does NOT patch IntroPresenter, its enum state,
- * jump tables, or ForceUpdateViewController. Earlier builds proved that
- * forcing the ready path can skip startup work and leave the app sitting on
- * the static OBDeleven launch icon.
+ * Keeps the working v1.0.4 strategy: do not patch IntroPresenter,
+ * AppUsabilityState, jump tables, or ForceUpdateViewController.
  *
- * Instead, 1.0.4 makes the old app report itself as a current release and then
- * lets OBDeleven's original startup/update state machine run normally.
+ * The spoofed short version is now configurable from Settings. The default
+ * remains 2.10.0. The high build number stays fixed at 2147483647.
  */
 
-static NSString *const kSpoofedShortVersion = @"2.10.0";
+static NSString *const kPreferencesDomain = @"com.551.obdelevenupdatebypass";
+static NSString *const kPreferencesChangedNotification = @"com.551.obdelevenupdatebypass/preferences.changed";
+static NSString *const kDefaultSpoofedShortVersion = @"2.10.0";
 /* High, but still safe for signed 32-bit code paths. */
 static NSString *const kSpoofedBuildVersion = @"2147483647";
 static NSString *const kMobileVersionHeader = @"x-mobile-app-version";
+
 static NSBundle *gMainBundle = nil;
+static NSString *gSpoofedShortVersion = nil;
 
 static BOOL isTargetBundle(void) {
     NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
     return [bundleID isEqualToString:@"com.voltasit.obdeleven.ios.basic"];
+}
+
+#pragma mark - Preferences
+
+static NSString *sanitizedVersionString(NSString *candidate) {
+    if (![candidate isKindOfClass:[NSString class]]) {
+        return nil;
+    }
+
+    NSString *trimmed = [candidate stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (trimmed.length == 0 || trimmed.length > 32) {
+        return nil;
+    }
+
+    NSCharacterSet *allowed = [NSCharacterSet characterSetWithCharactersInString:@"0123456789."];
+    if ([trimmed rangeOfCharacterFromSet:[allowed invertedSet]].location != NSNotFound) {
+        return nil;
+    }
+
+    if ([trimmed rangeOfCharacterFromSet:[NSCharacterSet decimalDigitCharacterSet]].location == NSNotFound) {
+        return nil;
+    }
+
+    return trimmed;
+}
+
+static NSString *readConfiguredSpoofedVersion(void) {
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
+
+    CFPropertyListRef rawValue = CFPreferencesCopyAppValue(CFSTR("spoofedVersion"),
+                                                           (__bridge CFStringRef)kPreferencesDomain);
+    NSString *candidate = nil;
+
+    if (rawValue) {
+        if (CFGetTypeID(rawValue) == CFStringGetTypeID()) {
+            candidate = [(__bridge NSString *)rawValue copy];
+        }
+        CFRelease(rawValue);
+    }
+
+    NSString *sanitized = sanitizedVersionString(candidate);
+    return sanitized ?: kDefaultSpoofedShortVersion;
+}
+
+static void reloadPreferences(void) {
+    NSString *newVersion = readConfiguredSpoofedVersion();
+    @synchronized([NSBundle class]) {
+        gSpoofedShortVersion = [newVersion copy];
+    }
+}
+
+static NSString *currentSpoofedShortVersion(void) {
+    @synchronized([NSBundle class]) {
+        return gSpoofedShortVersion ?: kDefaultSpoofedShortVersion;
+    }
+}
+
+static void preferencesChanged(CFNotificationCenterRef center,
+                               void *observer,
+                               CFStringRef name,
+                               const void *object,
+                               CFDictionaryRef userInfo) {
+    reloadPreferences();
+    NSLog(@"[OBDelevenUpdateBypass] Preferences reloaded; version=%@",
+          currentSpoofedShortVersion());
 }
 
 #pragma mark - NSBundle version spoof
@@ -38,7 +105,7 @@ static id spoofedObjectForInfoKey(NSBundle *self, SEL _cmd, NSString *key) {
             return kSpoofedBuildVersion;
         }
         if ([key isEqualToString:@"CFBundleShortVersionString"]) {
-            return kSpoofedShortVersion;
+            return currentSpoofedShortVersion();
         }
     }
     return originalObjectForInfoKey(self, _cmd, key);
@@ -55,7 +122,7 @@ static NSDictionary *spoofedInfoDictionary(NSBundle *self, SEL _cmd) {
 
     NSMutableDictionary *copy = [original mutableCopy];
     copy[@"CFBundleVersion"] = kSpoofedBuildVersion;
-    copy[@"CFBundleShortVersionString"] = kSpoofedShortVersion;
+    copy[@"CFBundleShortVersionString"] = currentSpoofedShortVersion();
     return copy;
 }
 
@@ -68,7 +135,7 @@ static CFTypeRef spoofedCFBundleGetValue(CFBundleRef bundle, CFStringRef key) {
             return (__bridge CFTypeRef)kSpoofedBuildVersion;
         }
         if (CFEqual(key, CFSTR("CFBundleShortVersionString"))) {
-            return (__bridge CFTypeRef)kSpoofedShortVersion;
+            return (__bridge CFTypeRef)currentSpoofedShortVersion();
         }
     }
     return originalCFBundleGetValue(bundle, key);
@@ -80,7 +147,7 @@ static NSURLRequest *requestBySpoofingVersionHeader(NSURLRequest *request) {
     if (!request) return request;
 
     NSMutableURLRequest *mutable = [request mutableCopy];
-    [mutable setValue:kSpoofedShortVersion forHTTPHeaderField:kMobileVersionHeader];
+    [mutable setValue:currentSpoofedShortVersion() forHTTPHeaderField:kMobileVersionHeader];
     return mutable;
 }
 
@@ -162,11 +229,20 @@ static void OBDelevenUpdateBypassInit(void) {
         if (!isTargetBundle()) return;
 
         gMainBundle = [NSBundle mainBundle];
+        reloadPreferences();
+
+        CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(),
+                                        NULL,
+                                        preferencesChanged,
+                                        (__bridge CFStringRef)kPreferencesChangedNotification,
+                                        NULL,
+                                        CFNotificationSuspensionBehaviorDeliverImmediately);
+
         installBundleSpoofs();
         installNetworkSpoofs();
 
-        NSLog(@"[OBDelevenUpdateBypass] v1.0.4 loaded; version=%@ build=%@ header=%@",
-              kSpoofedShortVersion,
+        NSLog(@"[OBDelevenUpdateBypass] v1.0.5 loaded; version=%@ build=%@ header=%@",
+              currentSpoofedShortVersion(),
               kSpoofedBuildVersion,
               kMobileVersionHeader);
     }
