@@ -1,9 +1,9 @@
 Package: com.551.obdelevenupdatebypass
 Name: OBDeleven Update Bypass
-Version: 1.0.4
+Version: 1.0.5
 Architecture: iphoneos-arm64
-Description: Bypasses the forced Update Required gate in regular OBDeleven 1.11.0 by spoofing only the app's main bundle version/build values so its own update checker follows the normal ready path.
+Description: Bypasses the forced Update Required gate in regular OBDeleven 1.11.0 by spoofing the app version/build and x-mobile-app-version header. The spoofed app version can be changed from Settings without rebuilding the tweak.
 Maintainer: 551
 Author: 551
 Section: Tweaks
-Depends: firmware (>= 16.0), ellekit
+Depends: firmware (>= 16.0), ellekit, preferenceloader
