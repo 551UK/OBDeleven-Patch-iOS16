@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>items</key>
+    <array>
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>footerText</key>
+            <string>Uses the same working v1.0.4 bypass method. The selected version is spoofed everywhere v1.0.4 used 2.10.0, including CFBundleShortVersionString and the x-mobile-app-version network header.</string>
+            <key>label</key>
+            <string>OBDeleven Update Bypass</string>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>default</key>
+            <true/>
+            <key>defaults</key>
+            <string>com.551.obdelevenupdatebypass</string>
+            <key>key</key>
+            <string>enabled</string>
+            <key>label</key>
+            <string>Enabled</string>
+            <key>PostNotification</key>
+            <string>com.551.obdelevenupdatebypass/preferences.changed</string>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>footerText</key>
+            <string>Use a real current OBDeleven version. The same value is returned through NSBundle/CFBundle and sent as x-mobile-app-version. Fully close and reopen OBDeleven after changing it.</string>
+            <key>label</key>
+            <string>Version Spoof</string>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSEditTextCell</string>
+            <key>default</key>
+            <string>2.10.0</string>
+            <key>defaults</key>
+            <string>com.551.obdelevenupdatebypass</string>
+            <key>key</key>
+            <string>spoofedVersion</string>
+            <key>label</key>
+            <string>Spoofed Version</string>
+            <key>placeholder</key>
+            <string>2.10.0</string>
+            <key>PostNotification</key>
+            <string>com.551.obdelevenupdatebypass/preferences.changed</string>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSEditTextCell</string>
+            <key>default</key>
+            <string>2147483647</string>
+            <key>defaults</key>
+            <string>com.551.obdelevenupdatebypass</string>
+            <key>key</key>
+            <string>spoofedBuild</string>
+            <key>label</key>
+            <string>Spoofed Build</string>
+            <key>placeholder</key>
+            <string>2147483647</string>
+            <key>PostNotification</key>
+            <string>com.551.obdelevenupdatebypass/preferences.changed</string>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>footerText</key>
+            <string>Reset restores the exact default spoof values used by the working build: version 2.10.0 and build 2147483647.</string>
+        </dict>
+
+        <dict>
+            <key>action</key>
+            <string>resetWorkingDefaults</string>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>Reset Working Defaults</string>
+        </dict>
+
+        <dict>
+            <key>action</key>
+            <string>openGitHub</string>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>GitHub Repository</string>
+        </dict>
+    </array>
+
+    <key>title</key>
+    <string>OBDeleven Update Bypass</string>
+</dict>
+</plist>
