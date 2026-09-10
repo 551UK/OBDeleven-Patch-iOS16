@@ -32,7 +32,7 @@
             <key>cell</key>
             <string>PSGroupCell</string>
             <key>footerText</key>
-            <string>Default: 2.10.0. Change this when OBDeleven starts requiring a newer app version. Fully close and reopen OBDeleven after changing it so the startup update check runs again.</string>
+            <string>Change this when OBDeleven starts requiring a newer app version. Fully close and reopen OBDeleven after changing it so the startup update check runs again.</string>
             <key>label</key>
             <string>Version Spoof</string>
         </dict>
@@ -58,7 +58,7 @@
             <key>cell</key>
             <string>PSGroupCell</string>
             <key>footerText</key>
-            <string>Reset restores the known-working 2.10.0 setting. Respring is included for convenience; after changing the version, fully close and reopen OBDeleven before testing the update screen.</string>
+            <string>Reset restores the known-working 2.10.0 spoof. Respring is included for convenience; after changing the version, fully close and reopen OBDeleven before testing the update screen.</string>
         </dict>
 
         <dict>
@@ -67,7 +67,7 @@
             <key>cell</key>
             <string>PSButtonCell</string>
             <key>label</key>
-            <string>Reset Working Default</string>
+            <string>Reset Spoofed Version</string>
         </dict>
 
         <dict>

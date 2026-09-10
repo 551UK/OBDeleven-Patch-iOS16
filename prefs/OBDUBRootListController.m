@@ -76,7 +76,6 @@ static BOOL SpawnCommand(const char *path, char *const argv[]) {
     SetPreferenceValue(@"enabled", @YES);
     SetPreferenceValue(@"spoofedVersion", @"2.10.0");
 
-    // Remove the obsolete exposed build setting from older test builds.
     CFPreferencesSetAppValue(
         CFSTR("spoofedBuild"),
         NULL,
@@ -87,8 +86,8 @@ static BOOL SpawnCommand(const char *path, char *const argv[]) {
     [self reloadSpecifiers];
 
     UIAlertController *alert =
-        [UIAlertController alertControllerWithTitle:@"Defaults Restored"
-                                            message:@"Spoofed Version is back to 2.10.0. Fully close and reopen OBDeleven after changing the version so its startup update check runs again."
+        [UIAlertController alertControllerWithTitle:@"Spoofed Version Reset"
+                                            message:@"Spoofed Version is now 2.10.0. Fully close and reopen OBDeleven so its startup update check runs again."
                                      preferredStyle:UIAlertControllerStyleAlert];
 
     [alert addAction:[UIAlertAction actionWithTitle:@"OK"

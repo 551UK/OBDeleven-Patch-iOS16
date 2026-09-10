@@ -30,11 +30,11 @@ jobs:
           set -euo pipefail
           test -s "$THEOS/sdks/iPhoneOS16.5.sdk/System/Library/PrivateFrameworks/Preferences.framework/Preferences.tbd"
 
-      - name: Fetch official OBDeleven Settings icon
+      - name: Prepare bundled OBDeleven Settings icon
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p layout/Library/PreferenceLoader/Preferences
+          mkdir -p prefs/Resources
           raw="$RUNNER_TEMP/obdeleven-artwork"
 
           python3 - "$raw" <<'PY'
@@ -66,9 +66,9 @@ jobs:
           print(f"Downloaded official OBDeleven artwork: {destination.stat().st_size} bytes")
           PY
 
-          base="layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png"
-          icon2="layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@2x.png"
-          icon3="layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@3x.png"
+          base="prefs/Resources/icon.png"
+          icon2="prefs/Resources/icon@2x.png"
+          icon3="prefs/Resources/icon@3x.png"
 
           /usr/bin/sips -s format png -z 29 29 "$raw" --out "$base" >/dev/null
           /usr/bin/sips -s format png -z 58 58 "$raw" --out "$icon2" >/dev/null
@@ -95,7 +95,7 @@ jobs:
 
           test "$(dpkg-deb -f "$deb" Architecture)" = "iphoneos-arm64"
           test "$(dpkg-deb -f "$deb" Package)" = "com.551.obdelevenupdatebypass"
-          test "$(dpkg-deb -f "$deb" Version)" = "1.0.7"
+          test "$(dpkg-deb -f "$deb" Version)" = "1.0.8"
           dpkg-deb -f "$deb" Depends > "$RUNNER_TEMP/deb-depends.txt"
           grep "com.opa334.libsandy" "$RUNNER_TEMP/deb-depends.txt"
           dpkg-deb --info "$deb"
@@ -105,13 +105,13 @@ jobs:
           dylib="$root/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.dylib"
           filter="$root/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.plist"
           entry="$root/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypassPrefs.plist"
-          icon="$root/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png"
-          icon2="$root/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@2x.png"
-          icon3="$root/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@3x.png"
           bundle="$root/Library/PreferenceBundles/OBDelevenUpdateBypassPrefs.bundle"
           prefs_binary="$bundle/OBDelevenUpdateBypassPrefs"
           prefs_root="$bundle/Root.plist"
           prefs_info="$bundle/Info.plist"
+          icon="$bundle/icon.png"
+          icon2="$bundle/icon@2x.png"
+          icon3="$bundle/icon@3x.png"
           sandy_profile="$root/Library/libSandy/OBDelevenUpdateBypass_Preferences.plist"
 
           test -s "$dylib"
@@ -133,6 +133,7 @@ jobs:
           plutil -lint "$prefs_root"
           plutil -lint "$prefs_info"
           plutil -lint "$sandy_profile"
+          grep "<string>icon.png</string>" "$entry"
 
           echo "Preference bundle linked frameworks:"
           otool -L "$prefs_binary"
@@ -158,7 +159,7 @@ jobs:
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
           title="OBDeleven Update Bypass ${version}"
-          notes="v1.0.7 repairs both parts of Settings. The preference bundle is linked against Apple's Preferences framework and is built with arm64 + arm64e so it can load correctly inside the iOS 16 Settings process. The Settings icon is converted to real PNG data at the normal 29pt 1x/2x/3x sizes. Enabled and Spoofed Version use standard PreferenceLoader storage. Because regular OBDeleven is a sandboxed App Store app, the tweak uses a tightly scoped libSandy read profile to read the Dopamine rootless preference plist directly, so changing the setting changes CFBundleShortVersionString, CFBundleVersion and x-mobile-app-version spoofing. Setting the version back to 1.11.0 or disabling the tweak turns every spoof off. Respring and GitHub buttons remain included."
+          notes="v1.0.8 keeps the confirmed-working runtime bypass unchanged and cleans up the Settings page. The visible default-version wording has been removed. The Settings icon now follows the same proven structure used by the working Replaced Screen & Battery preferences bundle: icon.png, icon@2x.png and icon@3x.png are packaged inside the preference bundle itself and the PreferenceLoader entry references icon.png. Respring and GitHub buttons remain included."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber
