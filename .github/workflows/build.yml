@@ -49,6 +49,7 @@ jobs:
           xcrun lipo "$dylib" -verify_arch arm64
           plutil -lint "$filter"
           grep -q "com.voltasit.obdeleven.ios.basic" "$filter"
+          strings "$dylib" | grep -q "v1.0.2 loaded"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -66,7 +67,7 @@ jobs:
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
           title="OBDeleven Update Bypass ${version}"
-          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. Version 1.0.1 keeps the real ShouldUpdateApplicationUseCase version patch and additionally redirects AppUsabilityState.appUpdateIsRequired to the appIsReadyToBeUsed launch path before ForceUpdateViewController can open. Only targets com.voltasit.obdeleven.ios.basic."
+          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.2 forces IntroPresenter's usability state to appIsReadyToBeUsed before the launch-state switch, retains the version and jump-table patches, and adds a UIKit failsafe that blocks ForceUpdateViewController presentation. Only targets com.voltasit.obdeleven.ios.basic."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber
