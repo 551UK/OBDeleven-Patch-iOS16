@@ -1,6 +1,8 @@
 name: Build rootless DEB
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -64,7 +66,7 @@ jobs:
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
           title="OBDeleven Update Bypass ${version}"
-          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. It patches the real version decision and also remaps the appUpdateIsRequired launch state to appIsReadyToBeUsed, preventing ForceUpdateViewController from being opened. Only targets com.voltasit.obdeleven.ios.basic."
+          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. Version 1.0.1 keeps the real ShouldUpdateApplicationUseCase version patch and additionally redirects AppUsabilityState.appUpdateIsRequired to the appIsReadyToBeUsed launch path before ForceUpdateViewController can open. Only targets com.voltasit.obdeleven.ios.basic."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber
