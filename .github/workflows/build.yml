@@ -99,7 +99,8 @@ jobs:
           test "$(dpkg-deb -f "$deb" Architecture)" = "iphoneos-arm64"
           test "$(dpkg-deb -f "$deb" Package)" = "com.551.obdelevenupdatebypass"
           test "$(dpkg-deb -f "$deb" Version)" = "1.0.7"
-          dpkg-deb -f "$deb" Depends | grep -q "com.opa334.libsandy"
+          dpkg-deb -f "$deb" Depends > "$RUNNER_TEMP/deb-depends.txt"
+          grep -q "com.opa334.libsandy" "$RUNNER_TEMP/deb-depends.txt"
           dpkg-deb --info "$deb"
           dpkg-deb -x "$deb" "$RUNNER_TEMP/obdeleven-check"
 
@@ -137,13 +138,19 @@ jobs:
           plutil -lint "$sandy_profile"
 
           # The preference bundle runs inside Settings, so it must link the
-          # Preferences private framework and contain an arm64e slice.
-          otool -L "$prefs_binary"
-          otool -L "$prefs_binary" | grep -q "Preferences.framework/Preferences"
+          # Preferences private framework and contain an arm64e slice. Write
+          # command output to files first so `set -o pipefail` cannot mistake
+          # grep -q closing a successful producer's pipe for a validation error.
+          otool -L "$prefs_binary" > "$RUNNER_TEMP/prefs-otool.txt"
+          cat "$RUNNER_TEMP/prefs-otool.txt"
+          grep -q "Preferences.framework/Preferences" "$RUNNER_TEMP/prefs-otool.txt"
 
-          file "$icon" | grep -q "PNG image data"
-          file "$icon2" | grep -q "PNG image data"
-          file "$icon3" | grep -q "PNG image data"
+          file "$icon" > "$RUNNER_TEMP/icon-file.txt"
+          file "$icon2" > "$RUNNER_TEMP/icon2-file.txt"
+          file "$icon3" > "$RUNNER_TEMP/icon3-file.txt"
+          grep -q "PNG image data" "$RUNNER_TEMP/icon-file.txt"
+          grep -q "PNG image data" "$RUNNER_TEMP/icon2-file.txt"
+          grep -q "PNG image data" "$RUNNER_TEMP/icon3-file.txt"
 
           grep -q "com.voltasit.obdeleven.ios.basic" "$filter"
           grep -q "OBDelevenUpdateBypassPrefs" "$entry"
@@ -163,19 +170,21 @@ jobs:
           grep -q "com.voltasit.obdeleven.ios.basic" "$sandy_profile"
           grep -q "/var/jb/var/mobile/Library/Preferences/com.551.obdelevenupdatebypass.plist" "$sandy_profile"
 
-          strings "$dylib" | grep -q "v1.0.7 loaded"
-          strings "$dylib" | grep -q "2.10.0"
-          strings "$dylib" | grep -q "2147483647"
-          strings "$dylib" | grep -q "x-mobile-app-version"
-          strings "$dylib" | grep -q "spoofedVersion"
-          strings "$dylib" | grep -q "objectForInfoDictionaryKey:"
-          strings "$dylib" | grep -q "dataTaskWithRequest:completionHandler:"
-          strings "$dylib" | grep -q "libSandy_applyProfile"
-          strings "$dylib" | grep -q "OBDelevenUpdateBypass_Preferences"
-          strings "$dylib" | grep -q "/var/jb/var/mobile/Library/Preferences/com.551.obdelevenupdatebypass.plist"
-          strings "$prefs_binary" | grep -q "resetWorkingDefaults"
-          strings "$prefs_binary" | grep -q "respring"
-          strings "$prefs_binary" | grep -q "openGitHub"
+          strings "$dylib" > "$RUNNER_TEMP/tweak-strings.txt"
+          strings "$prefs_binary" > "$RUNNER_TEMP/prefs-strings.txt"
+          grep -q "v1.0.7 loaded" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "2.10.0" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "2147483647" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "x-mobile-app-version" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "spoofedVersion" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "objectForInfoDictionaryKey:" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "dataTaskWithRequest:completionHandler:" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "libSandy_applyProfile" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "OBDelevenUpdateBypass_Preferences" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "/var/jb/var/mobile/Library/Preferences/com.551.obdelevenupdatebypass.plist" "$RUNNER_TEMP/tweak-strings.txt"
+          grep -q "resetWorkingDefaults" "$RUNNER_TEMP/prefs-strings.txt"
+          grep -q "respring" "$RUNNER_TEMP/prefs-strings.txt"
+          grep -q "openGitHub" "$RUNNER_TEMP/prefs-strings.txt"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
