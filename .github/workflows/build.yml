@@ -133,7 +133,7 @@ jobs:
           plutil -lint "$prefs_root"
           plutil -lint "$prefs_info"
           plutil -lint "$sandy_profile"
-          grep "<string>icon.png</string>" "$entry"
+          test "$(plutil -extract entry.icon raw -o - "$entry")" = "icon.png"
 
           echo "Preference bundle linked frameworks:"
           otool -L "$prefs_binary"
