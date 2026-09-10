@@ -1,4 +1,4 @@
-"""Check the installed dual-app filter, preferences, sandbox profile and icons."""
+"""Validate packaged app filters, independent settings keys, sandbox access and icon sizes."""
 from pathlib import Path
 import plistlib
 import struct
