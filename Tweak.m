@@ -1,24 +1,34 @@
 #import <Foundation/Foundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #include <substrate.h>
+#include <dlfcn.h>
 
 /*
  * OBDeleven Update Bypass v1.0.7
  * Target: regular OBDeleven 1.11.0
  * Bundle: com.voltasit.obdeleven.ios.basic
  *
- * Keeps the working v1.0.4 bypass path:
+ * Keeps the proven v1.0.4 bypass path:
  *   - spoof CFBundleShortVersionString through NSBundle/CFBundle
  *   - spoof CFBundleVersion with the known-working high build value
  *   - spoof x-mobile-app-version on outgoing NSURLSession requests
  *
- * Settings are the single source of truth. Turning the tweak off, or setting
- * Spoofed Version back to the app's real 1.11.0, disables every spoof path.
+ * Settings are the single source of truth. Because OBDeleven is an App Store
+ * app and therefore sandboxed, v1.0.7 also applies a small libSandy profile and
+ * reads the jailbreak's rootless preferences plist directly. This avoids the
+ * per-app cfprefsd container problem that made older Settings values appear to
+ * save while the injected tweak continued using its defaults.
  */
 
 static NSString *const kPreferencesDomain = @"com.551.obdelevenupdatebypass";
 static NSString *const kPreferencesChangedNotification =
     @"com.551.obdelevenupdatebypass/preferences.changed";
+static NSString *const kRootlessPreferencesPath =
+    @"/var/jb/var/mobile/Library/Preferences/com.551.obdelevenupdatebypass.plist";
+static NSString *const kLegacyPreferencesPath =
+    @"/var/mobile/Library/Preferences/com.551.obdelevenupdatebypass.plist";
+static const char *kLibSandyProfileName = "OBDelevenUpdateBypass_Preferences";
+
 static NSString *const kDefaultSpoofedShortVersion = @"2.10.0";
 static NSString *const kWorkingSpoofedBuildVersion = @"2147483647";
 static NSString *const kMobileVersionHeader = @"x-mobile-app-version";
@@ -27,6 +37,8 @@ static NSBundle *gMainBundle = nil;
 static BOOL gEnabled = YES;
 static NSString *gSpoofedShortVersion = nil;
 static NSString *gActualShortVersion = nil;
+static BOOL gPreferenceSandboxAccessApplied = NO;
+static void *gLibSandyHandle = NULL;
 
 static BOOL isTargetBundle(void) {
     NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
@@ -34,6 +46,43 @@ static BOOL isTargetBundle(void) {
 }
 
 #pragma mark - Preferences
+
+typedef int (*LibSandyApplyProfileFn)(const char *profileName);
+
+static void applyPreferenceSandboxAccess(void) {
+    if (gPreferenceSandboxAccessApplied) return;
+
+    const char *paths[] = {
+        "/var/jb/usr/lib/libsandy.dylib",
+        "/usr/lib/libsandy.dylib",
+        "libsandy.dylib",
+        NULL
+    };
+
+    for (int i = 0; paths[i] != NULL && !gLibSandyHandle; i++) {
+        gLibSandyHandle = dlopen(paths[i], RTLD_NOW | RTLD_LOCAL);
+    }
+
+    if (!gLibSandyHandle) {
+        NSLog(@"[OBDelevenUpdateBypass] libSandy could not be loaded: %s", dlerror());
+        return;
+    }
+
+    LibSandyApplyProfileFn applyProfile =
+        (LibSandyApplyProfileFn)dlsym(gLibSandyHandle, "libSandy_applyProfile");
+    if (!applyProfile) {
+        NSLog(@"[OBDelevenUpdateBypass] libSandy_applyProfile was not found");
+        return;
+    }
+
+    int result = applyProfile(kLibSandyProfileName);
+    if (result == 0) {
+        gPreferenceSandboxAccessApplied = YES;
+        NSLog(@"[OBDelevenUpdateBypass] preference sandbox profile applied");
+    } else {
+        NSLog(@"[OBDelevenUpdateBypass] preference sandbox profile failed: %d", result);
+    }
+}
 
 static NSString *sanitizedVersionString(id candidate) {
     if (![candidate isKindOfClass:[NSString class]]) {
@@ -58,18 +107,48 @@ static NSString *sanitizedVersionString(id candidate) {
     return trimmed;
 }
 
-static id copyPreferenceValue(CFStringRef key) {
+static NSDictionary *preferencesDictionaryFromDisk(void) {
+    applyPreferenceSandboxAccess();
+
+    NSArray<NSString *> *paths = @[
+        kRootlessPreferencesPath,
+        kLegacyPreferencesPath
+    ];
+
+    for (NSString *path in paths) {
+        NSDictionary *dictionary = [NSDictionary dictionaryWithContentsOfFile:path];
+        if ([dictionary isKindOfClass:[NSDictionary class]]) {
+            return dictionary;
+        }
+    }
+
+    return nil;
+}
+
+static id copyPreferenceValue(NSString *key) {
+    if (key.length == 0) return nil;
+
+    // First read the actual jailbreak preference file. This is the important
+    // path for sandboxed App Store processes on Dopamine/rootless.
+    NSDictionary *diskPreferences = preferencesDictionaryFromDisk();
+    id diskValue = diskPreferences[key];
+    if (diskValue) {
+        return diskValue;
+    }
+
+    // Keep a cfprefsd fallback for setups where the jailbreak exposes the
+    // domain directly to the app process.
     CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
     CFPropertyListRef raw = CFPreferencesCopyAppValue(
-        key,
+        (__bridge CFStringRef)key,
         (__bridge CFStringRef)kPreferencesDomain);
     if (!raw) return nil;
     return CFBridgingRelease(raw);
 }
 
 static void reloadPreferences(void) {
-    id enabledValue = copyPreferenceValue(CFSTR("enabled"));
-    id versionValue = copyPreferenceValue(CFSTR("spoofedVersion"));
+    id enabledValue = copyPreferenceValue(@"enabled");
+    id versionValue = copyPreferenceValue(@"spoofedVersion");
 
     BOOL enabled = enabledValue ? [enabledValue boolValue] : YES;
     NSString *version = sanitizedVersionString(versionValue) ?: kDefaultSpoofedShortVersion;
@@ -267,6 +346,8 @@ static void OBDelevenUpdateBypassInit(void) {
 
         gMainBundle = [NSBundle mainBundle];
         gActualShortVersion = [[gMainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] copy];
+
+        applyPreferenceSandboxAccess();
         reloadPreferences();
 
         CFNotificationCenterAddObserver(
@@ -280,12 +361,13 @@ static void OBDelevenUpdateBypassInit(void) {
         installBundleSpoofs();
         installNetworkSpoofs();
 
-        NSLog(@"[OBDelevenUpdateBypass] v1.0.7 loaded; enabled=%d selected=%@ actual=%@ active=%d build=%@ header=%@",
+        NSLog(@"[OBDelevenUpdateBypass] v1.0.7 loaded; enabled=%d selected=%@ actual=%@ active=%d build=%@ header=%@ prefsFileAccess=%d",
               gEnabled,
               currentSpoofedShortVersion(),
               gActualShortVersion,
               spoofingEnabled(),
               kWorkingSpoofedBuildVersion,
-              kMobileVersionHeader);
+              kMobileVersionHeader,
+              gPreferenceSandboxAccessApplied);
     }
 }
