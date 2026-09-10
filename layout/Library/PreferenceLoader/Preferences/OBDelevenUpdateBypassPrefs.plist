@@ -8,6 +8,8 @@
         <string>OBDelevenUpdateBypassPrefs</string>
         <key>cell</key>
         <string>PSLinkCell</string>
+        <key>detail</key>
+        <string>OBDUBRootListController</string>
         <key>icon</key>
         <string>OBDelevenUpdateBypass.png</string>
         <key>isController</key>
