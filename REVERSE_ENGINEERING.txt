@@ -4,7 +4,8 @@ Regular app: com.voltasit.obdeleven.ios.basic / 1.11.0
 VAG app: com.voltasit.obdeleven.ios / 1.9.73 / build 1785335496
 VAG executable: OBDeleven VAG, arm64, LC_ENCRYPTION_INFO_64 cryptid=0.
 
-VAG static analysis (main-image offsets, not runtime patches):
+VAG update-check analysis
+Addresses below are offsets in the decrypted main executable, not runtime patches:
 - 0x331E7C: force-update completion path reads CFBundleVersion using
   helper 0x15E30C (NSBundle.mainBundle objectForInfoDictionaryKey:).
 - The required integer is obtained using remote-config key ios_version.
