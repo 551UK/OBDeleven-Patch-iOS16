@@ -1,8 +1,8 @@
 Package: com.551.obdelevenupdatebypass
 Name: OBDeleven Update Bypass
-Version: 1.0.2
+Version: 1.0.3
 Architecture: iphoneos-arm64
-Description: Bypasses the forced Update Required gate in regular OBDeleven 1.11.0 by forcing the launch usability state to ready and blocking ForceUpdateViewController as a failsafe.
+Description: Bypasses the forced Update Required gate in regular OBDeleven 1.11.0 by redirecting only the final force-update branch after normal startup checks complete.
 Maintainer: 551
 Author: 551
 Section: Tweaks
