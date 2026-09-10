@@ -7,22 +7,26 @@
  * Target: regular OBDeleven 1.11.0
  * Bundle: com.voltasit.obdeleven.ios.basic
  *
- * Keeps the working v1.0.4 strategy: do not patch IntroPresenter,
- * AppUsabilityState, jump tables, or ForceUpdateViewController.
+ * Keeps the working v1.0.4 strategy exactly where it matters:
+ *   - no IntroPresenter/AppUsabilityState/jump-table patches
+ *   - no ForceUpdateViewController blocking
+ *   - spoof the main bundle short version/build
+ *   - spoof x-mobile-app-version on outgoing NSURLSession requests
  *
- * The spoofed short version is now configurable from Settings. The default
- * remains 2.10.0. The high build number stays fixed at 2147483647.
+ * v1.0.5 adds preferences only. Defaults remain 2.10.0 / 2147483647.
  */
 
 static NSString *const kPreferencesDomain = @"com.551.obdelevenupdatebypass";
-static NSString *const kPreferencesChangedNotification = @"com.551.obdelevenupdatebypass/preferences.changed";
+static NSString *const kPreferencesChangedNotification =
+    @"com.551.obdelevenupdatebypass/preferences.changed";
 static NSString *const kDefaultSpoofedShortVersion = @"2.10.0";
-/* High, but still safe for signed 32-bit code paths. */
-static NSString *const kSpoofedBuildVersion = @"2147483647";
+static NSString *const kDefaultSpoofedBuildVersion = @"2147483647";
 static NSString *const kMobileVersionHeader = @"x-mobile-app-version";
 
 static NSBundle *gMainBundle = nil;
+static BOOL gEnabled = YES;
 static NSString *gSpoofedShortVersion = nil;
+static NSString *gSpoofedBuildVersion = nil;
 
 static BOOL isTargetBundle(void) {
     NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
@@ -31,12 +35,13 @@ static BOOL isTargetBundle(void) {
 
 #pragma mark - Preferences
 
-static NSString *sanitizedVersionString(NSString *candidate) {
+static NSString *sanitizedVersionString(id candidate) {
     if (![candidate isKindOfClass:[NSString class]]) {
         return nil;
     }
 
-    NSString *trimmed = [candidate stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSString *trimmed = [(NSString *)candidate
+        stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     if (trimmed.length == 0 || trimmed.length > 32) {
         return nil;
     }
@@ -53,34 +58,71 @@ static NSString *sanitizedVersionString(NSString *candidate) {
     return trimmed;
 }
 
-static NSString *readConfiguredSpoofedVersion(void) {
-    CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
-
-    CFPropertyListRef rawValue = CFPreferencesCopyAppValue(CFSTR("spoofedVersion"),
-                                                           (__bridge CFStringRef)kPreferencesDomain);
-    NSString *candidate = nil;
-
-    if (rawValue) {
-        if (CFGetTypeID(rawValue) == CFStringGetTypeID()) {
-            candidate = [(__bridge NSString *)rawValue copy];
-        }
-        CFRelease(rawValue);
+static NSString *sanitizedBuildString(id candidate) {
+    if (![candidate isKindOfClass:[NSString class]]) {
+        return nil;
     }
 
-    NSString *sanitized = sanitizedVersionString(candidate);
-    return sanitized ?: kDefaultSpoofedShortVersion;
+    NSString *trimmed = [(NSString *)candidate
+        stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (trimmed.length == 0 || trimmed.length > 10) {
+        return nil;
+    }
+
+    NSCharacterSet *digits = [NSCharacterSet decimalDigitCharacterSet];
+    if ([trimmed rangeOfCharacterFromSet:[digits invertedSet]].location != NSNotFound) {
+        return nil;
+    }
+
+    unsigned long long value = strtoull(trimmed.UTF8String, NULL, 10);
+    if (value == 0 || value > 2147483647ULL) {
+        return nil;
+    }
+
+    return trimmed;
+}
+
+static id copyPreferenceValue(CFStringRef key) {
+    CFPropertyListRef raw = CFPreferencesCopyAppValue(
+        key,
+        (__bridge CFStringRef)kPreferencesDomain);
+    if (!raw) return nil;
+    return CFBridgingRelease(raw);
 }
 
 static void reloadPreferences(void) {
-    NSString *newVersion = readConfiguredSpoofedVersion();
-    @synchronized([NSBundle class]) {
-        gSpoofedShortVersion = [newVersion copy];
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
+
+    id enabledValue = copyPreferenceValue(CFSTR("enabled"));
+    id versionValue = copyPreferenceValue(CFSTR("spoofedVersion"));
+    id buildValue = copyPreferenceValue(CFSTR("spoofedBuild"));
+
+    BOOL enabled = enabledValue ? [enabledValue boolValue] : YES;
+    NSString *version = sanitizedVersionString(versionValue) ?: kDefaultSpoofedShortVersion;
+    NSString *build = sanitizedBuildString(buildValue) ?: kDefaultSpoofedBuildVersion;
+
+    @synchronized ([NSBundle class]) {
+        gEnabled = enabled;
+        gSpoofedShortVersion = [version copy];
+        gSpoofedBuildVersion = [build copy];
+    }
+}
+
+static BOOL spoofingEnabled(void) {
+    @synchronized ([NSBundle class]) {
+        return gEnabled;
     }
 }
 
 static NSString *currentSpoofedShortVersion(void) {
-    @synchronized([NSBundle class]) {
+    @synchronized ([NSBundle class]) {
         return gSpoofedShortVersion ?: kDefaultSpoofedShortVersion;
+    }
+}
+
+static NSString *currentSpoofedBuildVersion(void) {
+    @synchronized ([NSBundle class]) {
+        return gSpoofedBuildVersion ?: kDefaultSpoofedBuildVersion;
     }
 }
 
@@ -89,9 +131,13 @@ static void preferencesChanged(CFNotificationCenterRef center,
                                CFStringRef name,
                                const void *object,
                                CFDictionaryRef userInfo) {
-    reloadPreferences();
-    NSLog(@"[OBDelevenUpdateBypass] Preferences reloaded; version=%@",
-          currentSpoofedShortVersion());
+    @autoreleasepool {
+        reloadPreferences();
+        NSLog(@"[OBDelevenUpdateBypass] Preferences reloaded; enabled=%d version=%@ build=%@",
+              spoofingEnabled(),
+              currentSpoofedShortVersion(),
+              currentSpoofedBuildVersion());
+    }
 }
 
 #pragma mark - NSBundle version spoof
@@ -100,9 +146,9 @@ typedef id (*ObjectForInfoKeyIMP)(NSBundle *, SEL, NSString *);
 static ObjectForInfoKeyIMP originalObjectForInfoKey = NULL;
 
 static id spoofedObjectForInfoKey(NSBundle *self, SEL _cmd, NSString *key) {
-    if (self == gMainBundle) {
+    if (self == gMainBundle && spoofingEnabled()) {
         if ([key isEqualToString:@"CFBundleVersion"]) {
-            return kSpoofedBuildVersion;
+            return currentSpoofedBuildVersion();
         }
         if ([key isEqualToString:@"CFBundleShortVersionString"]) {
             return currentSpoofedShortVersion();
@@ -116,12 +162,12 @@ static InfoDictionaryIMP originalInfoDictionary = NULL;
 
 static NSDictionary *spoofedInfoDictionary(NSBundle *self, SEL _cmd) {
     NSDictionary *original = originalInfoDictionary(self, _cmd);
-    if (self != gMainBundle || !original) {
+    if (self != gMainBundle || !original || !spoofingEnabled()) {
         return original;
     }
 
     NSMutableDictionary *copy = [original mutableCopy];
-    copy[@"CFBundleVersion"] = kSpoofedBuildVersion;
+    copy[@"CFBundleVersion"] = currentSpoofedBuildVersion();
     copy[@"CFBundleShortVersionString"] = currentSpoofedShortVersion();
     return copy;
 }
@@ -130,9 +176,9 @@ typedef CFTypeRef (*CFBundleGetValueIMP)(CFBundleRef, CFStringRef);
 static CFBundleGetValueIMP originalCFBundleGetValue = NULL;
 
 static CFTypeRef spoofedCFBundleGetValue(CFBundleRef bundle, CFStringRef key) {
-    if (bundle == CFBundleGetMainBundle() && key) {
+    if (bundle == CFBundleGetMainBundle() && key && spoofingEnabled()) {
         if (CFEqual(key, CFSTR("CFBundleVersion"))) {
-            return (__bridge CFTypeRef)kSpoofedBuildVersion;
+            return (__bridge CFTypeRef)currentSpoofedBuildVersion();
         }
         if (CFEqual(key, CFSTR("CFBundleShortVersionString"))) {
             return (__bridge CFTypeRef)currentSpoofedShortVersion();
@@ -144,46 +190,64 @@ static CFTypeRef spoofedCFBundleGetValue(CFBundleRef bundle, CFStringRef key) {
 #pragma mark - Network version header spoof
 
 static NSURLRequest *requestBySpoofingVersionHeader(NSURLRequest *request) {
-    if (!request) return request;
+    if (!request || !spoofingEnabled()) {
+        return request;
+    }
 
     NSMutableURLRequest *mutable = [request mutableCopy];
-    [mutable setValue:currentSpoofedShortVersion() forHTTPHeaderField:kMobileVersionHeader];
+    [mutable setValue:currentSpoofedShortVersion()
+   forHTTPHeaderField:kMobileVersionHeader];
     return mutable;
 }
 
-typedef NSURLSessionDataTask *(*DataTaskRequestCompletionIMP)(NSURLSession *, SEL, NSURLRequest *, void (^)(NSData *, NSURLResponse *, NSError *));
+typedef NSURLSessionDataTask *(*DataTaskRequestCompletionIMP)(
+    NSURLSession *, SEL, NSURLRequest *,
+    void (^)(NSData *, NSURLResponse *, NSError *));
 static DataTaskRequestCompletionIMP originalDataTaskRequestCompletion = NULL;
 
-static NSURLSessionDataTask *spoofedDataTaskRequestCompletion(NSURLSession *self,
-                                                               SEL _cmd,
-                                                               NSURLRequest *request,
-                                                               void (^completion)(NSData *, NSURLResponse *, NSError *)) {
-    return originalDataTaskRequestCompletion(self, _cmd,
-                                             requestBySpoofingVersionHeader(request),
-                                             completion);
+static NSURLSessionDataTask *spoofedDataTaskRequestCompletion(
+    NSURLSession *self,
+    SEL _cmd,
+    NSURLRequest *request,
+    void (^completion)(NSData *, NSURLResponse *, NSError *)) {
+    return originalDataTaskRequestCompletion(
+        self,
+        _cmd,
+        requestBySpoofingVersionHeader(request),
+        completion);
 }
 
-typedef NSURLSessionDataTask *(*DataTaskRequestIMP)(NSURLSession *, SEL, NSURLRequest *);
+typedef NSURLSessionDataTask *(*DataTaskRequestIMP)(
+    NSURLSession *, SEL, NSURLRequest *);
 static DataTaskRequestIMP originalDataTaskRequest = NULL;
 
-static NSURLSessionDataTask *spoofedDataTaskRequest(NSURLSession *self,
-                                                     SEL _cmd,
-                                                     NSURLRequest *request) {
-    return originalDataTaskRequest(self, _cmd, requestBySpoofingVersionHeader(request));
+static NSURLSessionDataTask *spoofedDataTaskRequest(
+    NSURLSession *self,
+    SEL _cmd,
+    NSURLRequest *request) {
+    return originalDataTaskRequest(
+        self,
+        _cmd,
+        requestBySpoofingVersionHeader(request));
 }
 
-typedef NSURLSessionUploadTask *(*UploadTaskDataCompletionIMP)(NSURLSession *, SEL, NSURLRequest *, NSData *, void (^)(NSData *, NSURLResponse *, NSError *));
+typedef NSURLSessionUploadTask *(*UploadTaskDataCompletionIMP)(
+    NSURLSession *, SEL, NSURLRequest *, NSData *,
+    void (^)(NSData *, NSURLResponse *, NSError *));
 static UploadTaskDataCompletionIMP originalUploadTaskDataCompletion = NULL;
 
-static NSURLSessionUploadTask *spoofedUploadTaskDataCompletion(NSURLSession *self,
-                                                                SEL _cmd,
-                                                                NSURLRequest *request,
-                                                                NSData *bodyData,
-                                                                void (^completion)(NSData *, NSURLResponse *, NSError *)) {
-    return originalUploadTaskDataCompletion(self, _cmd,
-                                            requestBySpoofingVersionHeader(request),
-                                            bodyData,
-                                            completion);
+static NSURLSessionUploadTask *spoofedUploadTaskDataCompletion(
+    NSURLSession *self,
+    SEL _cmd,
+    NSURLRequest *request,
+    NSData *bodyData,
+    void (^completion)(NSData *, NSURLResponse *, NSError *)) {
+    return originalUploadTaskDataCompletion(
+        self,
+        _cmd,
+        requestBySpoofingVersionHeader(request),
+        bodyData,
+        completion);
 }
 
 static void installBundleSpoofs(void) {
@@ -231,19 +295,21 @@ static void OBDelevenUpdateBypassInit(void) {
         gMainBundle = [NSBundle mainBundle];
         reloadPreferences();
 
-        CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(),
-                                        NULL,
-                                        preferencesChanged,
-                                        (__bridge CFStringRef)kPreferencesChangedNotification,
-                                        NULL,
-                                        CFNotificationSuspensionBehaviorDeliverImmediately);
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            NULL,
+            preferencesChanged,
+            (__bridge CFStringRef)kPreferencesChangedNotification,
+            NULL,
+            CFNotificationSuspensionBehaviorDeliverImmediately);
 
         installBundleSpoofs();
         installNetworkSpoofs();
 
-        NSLog(@"[OBDelevenUpdateBypass] v1.0.5 loaded; version=%@ build=%@ header=%@",
+        NSLog(@"[OBDelevenUpdateBypass] v1.0.5 loaded; enabled=%d version=%@ build=%@ header=%@",
+              spoofingEnabled(),
               currentSpoofedShortVersion(),
-              kSpoofedBuildVersion,
+              currentSpoofedBuildVersion(),
               kMobileVersionHeader);
     }
 }
