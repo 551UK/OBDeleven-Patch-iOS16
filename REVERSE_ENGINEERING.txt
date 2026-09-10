@@ -7,72 +7,80 @@ Inspected IPA:
   CFBundleVersion: 1730903584
   MinimumOSVersion: 16.0
 
-Relevant Swift metadata / strings in the decrypted executable:
-  ShouldUpdateApplication
+Relevant Swift metadata / strings:
   ShouldUpdateApplicationUseCase
-  _TtC9OBDeleven30ShouldUpdateApplicationUseCase
-  ShouldUpdateApplicationUseCase.swift
-  currentAppVersion()
-  requiredVersion:
-  currentAppVersion:
   AppUsabilityState
   appIsReadyToBeUsed
   appUpdateIsRequired
+  IntroPresenter.swift
+  startUsabilityStateCheck()
   ForceUpdateViewController
-  ForceUpdatePresenter
   Update Required
 
-1. Actual version decision
---------------------------
+1. Version decision
+-------------------
 
-Unslid virtual addresses:
-  0x100155BE0  cmp  x19, x21
-  0x100155BE4  mov  w8, #1
-  0x100155BE8  cinc x20, x8, lt
-  0x100155BEC  ldr  x1, [x22, #8]
-  0x100155BF0  mov  x0, x20
+0x100155BE0  cmp  x19, x21
+0x100155BE4  mov  w8, #1
+0x100155BE8  cinc x20, x8, lt
 
-Patch at main-image offset 0x155BE8:
-  original bytes:    14 A5 88 9A  (cinc x20, x8, lt)
-  replacement bytes: F4 03 08 AA  (mov x20, x8)
+Patch @ main-image +0x155BE8:
+  original:    14 A5 88 9A
+  replacement: F4 03 08 AA
 
-2. Final AppUsabilityState dispatch
------------------------------------
+2. IntroPresenter usability-state result
+----------------------------------------
 
-The Swift field metadata for AppUsabilityState contains one payload case
-(errorWhileChekingState) followed by these no-payload cases:
-  sessionTokenExpired
-  appIsReadyToBeUsed
-  appUpdateIsRequired
-  userPasswordChangeIsRequired
+The async usability-state result is loaded into x23 here:
 
-In the optimized enum representation used by IntroPresenter, those no-payload
-states dispatch as tags 0, 1, 2 and 3 respectively.
+0x10015E778  ldr x23, [x22, #0x98]
 
-IntroPresenter switch code:
-  0x10015E7F4  cmp x23, #3
-  0x10015E7FC  adrp x8, ...
-  0x10015E800  add  x8, x8, #0xB38
-  0x10015E808  ldrsw x10, [x8, x23, lsl #2]
-  0x10015E80C  add  x9, x9, x10
-  0x10015E810  br   x9
+Immediately afterward the function compares x23 and dispatches it through the
+AppUsabilityState jump table:
+
+0x10015E7F4  cmp   x23, #3
+0x10015E800  add   x8, x8, #0xB38
+0x10015E808  ldrsw x10, [x8, x23, lsl #2]
+0x10015E80C  add   x9, x9, x10
+0x10015E810  br    x9
+
+No-payload state tags used by this switch:
+  0 sessionTokenExpired
+  1 appIsReadyToBeUsed
+  2 appUpdateIsRequired
+  3 userPasswordChangeIsRequired
+
+v1.0.2 patch @ main-image +0x15E778:
+  original:    D7 4E 40 F9    ldr x23, [x22, #0x98]
+  replacement: 37 00 80 D2    mov x23, #1
+
+This forces the launch routine onto the app's own normal ready-state path before
+the enum switch can select appUpdateIsRequired.
+
+3. Jump-table fallback retained from v1.0.1
+-------------------------------------------
 
 Jump table @ 0x10015EB38:
-  tag 0 -> +0x010 -> 0x10015E814
-  tag 1 -> +0x104 -> 0x10015E908  (appIsReadyToBeUsed)
-  tag 2 -> +0x140 -> 0x10015E944  (appUpdateIsRequired)
-  tag 3 -> +0x260 -> 0x10015EA64
+  tag 0 -> 0x10015E814
+  tag 1 -> 0x10015E908  appIsReadyToBeUsed
+  tag 2 -> 0x10015E944  appUpdateIsRequired
+  tag 3 -> 0x10015EA64
 
-The tag-2 branch at 0x10015E944 calls the metadata accessor at 0x1000C5A24.
-Resolving that Swift class descriptor identifies it as ForceUpdateViewController,
-confirming this is the exact branch that opens the full-screen Update Required UI.
+Patch @ main-image +0x15EB40:
+  original:    40 01 00 00
+  replacement: 04 01 00 00
 
-Patch at main-image offset 0x15EB40 (tag-2 jump-table entry):
-  original bytes:    40 01 00 00  (+0x140 -> 0x10015E944)
-  replacement bytes: 04 01 00 00  (+0x104 -> 0x10015E908)
+4. ForceUpdateViewController presentation fallback
+--------------------------------------------------
 
-This redirects appUpdateIsRequired to the app's own appIsReadyToBeUsed path.
-It does not merely hide the ForceUpdate view after presentation.
+The state-2 branch constructs ForceUpdateViewController and calls Objective-C
+presentation with the same ABI as:
 
-Both v1.0.1 patches check their exact original four bytes before writing. A
-binary that does not match the inspected OBDeleven 1.11.0 build is not patched.
+  -presentViewController:animated:completion:
+
+v1.0.2 hooks UIViewController's presentation method and UINavigationController's
+push method. A controller whose class hierarchy contains ForceUpdateViewController
+is rejected before UIKit can display it.
+
+All binary writes verify the original four bytes before patching. The tweak also
+logs when v1.0.2 loads and when a ForceUpdate controller presentation is blocked.
