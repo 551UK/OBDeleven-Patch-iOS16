@@ -1,3 +1,4 @@
+// Persists independent app settings and implements reset, Respring and GitHub buttons.
 #import "OBDUBRootListController.h"
 
 #import <CoreFoundation/CoreFoundation.h>
