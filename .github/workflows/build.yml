@@ -24,6 +24,39 @@ jobs:
           theos-sdks: https://github.com/theos/sdks
           theos-sdks-branch: master
 
+      - name: Fetch official OBDeleven Settings icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p layout/Library/PreferenceLoader/Preferences
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import urllib.request
+
+          lookup = "https://itunes.apple.com/lookup?id=1643119107&country=gb"
+          request = urllib.request.Request(lookup, headers={"User-Agent": "Mozilla/5.0"})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              payload = json.load(response)
+
+          if not payload.get("results"):
+              raise SystemExit("OBDeleven App Store lookup returned no results")
+
+          result = payload["results"][0]
+          artwork = result.get("artworkUrl512") or result.get("artworkUrl100") or result.get("artworkUrl60")
+          if not artwork:
+              raise SystemExit("OBDeleven App Store artwork URL was missing")
+
+          destination = pathlib.Path("layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png")
+          image_request = urllib.request.Request(artwork, headers={"User-Agent": "Mozilla/5.0"})
+          with urllib.request.urlopen(image_request, timeout=30) as response:
+              destination.write_bytes(response.read())
+
+          if destination.stat().st_size < 1000:
+              raise SystemExit("Downloaded OBDeleven icon is unexpectedly small")
+          print(f"Downloaded official OBDeleven icon: {destination.stat().st_size} bytes")
+          PY
+
       - name: Build rootless package
         run: make clean package FINALPACKAGE=1
 
@@ -38,21 +71,31 @@ jobs:
 
           test "$(dpkg-deb -f "$deb" Architecture)" = "iphoneos-arm64"
           test "$(dpkg-deb -f "$deb" Package)" = "com.551.obdelevenupdatebypass"
+          test "$(dpkg-deb -f "$deb" Version)" = "1.0.5"
           dpkg-deb --info "$deb"
           dpkg-deb -x "$deb" "$RUNNER_TEMP/obdeleven-check"
 
           dylib="$RUNNER_TEMP/obdeleven-check/var/jb/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.dylib"
           filter="$RUNNER_TEMP/obdeleven-check/var/jb/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.plist"
+          prefs="$RUNNER_TEMP/obdeleven-check/var/jb/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypassPrefs.plist"
+          icon="$RUNNER_TEMP/obdeleven-check/var/jb/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png"
 
           test -s "$dylib"
           test -s "$filter"
+          test -s "$prefs"
+          test -s "$icon"
           xcrun lipo "$dylib" -verify_arch arm64
           plutil -lint "$filter"
+          plutil -lint "$prefs"
           grep -q "com.voltasit.obdeleven.ios.basic" "$filter"
-          strings "$dylib" | grep -q "v1.0.4 loaded"
+          grep -q "PSEditTextCell" "$prefs"
+          grep -q "spoofedVersion" "$prefs"
+          grep -q "OBDelevenUpdateBypass.png" "$prefs"
+          strings "$dylib" | grep -q "v1.0.5 loaded"
           strings "$dylib" | grep -q "2.10.0"
           strings "$dylib" | grep -q "2147483647"
           strings "$dylib" | grep -q "x-mobile-app-version"
+          strings "$dylib" | grep -q "spoofedVersion"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -70,7 +113,7 @@ jobs:
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
           title="OBDeleven Update Bypass ${version}"
-          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.4 removes all forced ready-state/control-flow bypasses. It runtime-spoofs CFBundleShortVersionString as 2.10.0, CFBundleVersion as 2147483647, and the x-mobile-app-version request header as 2.10.0, then lets OBDeleven's original startup and update state machine run normally. Only targets com.voltasit.obdeleven.ios.basic."
+          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.5 keeps the working v1.0.4 runtime-spoof method and adds a Settings pane where the spoofed app version can be changed without rebuilding the tweak. Default version is 2.10.0. CFBundleVersion remains 2147483647 and the selected version is also used for the x-mobile-app-version request header. Includes the official OBDeleven app icon in Settings. Only targets com.voltasit.obdeleven.ios.basic."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber
