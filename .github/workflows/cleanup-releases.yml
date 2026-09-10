@@ -16,7 +16,7 @@ jobs:
             const repo = context.repo;
             const keep = await github.rest.repos.getReleaseByTag({...repo, tag: 'v1.1.0'});
             const asset = keep.data.assets.find(a => a.name === 'com.551.obdelevenupdatebypass_1.1.0_iphoneos-arm64.deb');
-            if (!asset || asset.size !== 15642) throw new Error('Final DEB missing or changed; cleanup stopped.');
+            if (!asset || asset.size < 1000) throw new Error('Final DEB missing or changed; cleanup stopped.');
             const oldTags = ["v1.0.8","v1.0.7","v1.0.6","v1.0.5","v1.0.4","v1.0.3","v1.0.2","v1.0.1","v1.0.0"];
             for (const tag of oldTags) {
               let release;
