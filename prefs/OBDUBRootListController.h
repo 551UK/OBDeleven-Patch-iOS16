@@ -1,3 +1,4 @@
+// Declares the settings reader, writer, per-app reset buttons and navigation actions.
 #import <Preferences/PSListController.h>
 
 @class PSSpecifier;
