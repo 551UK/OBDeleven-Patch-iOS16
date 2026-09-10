@@ -1,0 +1,36 @@
+OBDeleven 1.11.0 Update Gate Analysis
+=====================================
+
+Inspected IPA:
+  regular OBDeleven 1.11.0
+  bundle: com.voltasit.obdeleven.ios.basic
+  CFBundleVersion: 1730903584
+  MinimumOSVersion: 16.0
+
+Relevant Swift metadata / strings in the decrypted executable:
+  ShouldUpdateApplication
+  ShouldUpdateApplicationUseCase
+  _TtC9OBDeleven30ShouldUpdateApplicationUseCase
+  ShouldUpdateApplicationUseCase.swift
+  currentAppVersion()
+  requiredVersion:
+  currentAppVersion:
+  Update Required
+  ForceUpdatePresenter
+
+Actual decision code (unslid virtual addresses):
+  0x100155BE0  cmp  x19, x21
+  0x100155BE4  mov  w8, #1
+  0x100155BE8  cinc x20, x8, lt
+  0x100155BEC  ldr  x1, [x22, #8]
+  0x100155BF0  mov  x0, x20
+
+The comparison is the installed/current build versus the required build. The
+CINC produces state 2 when current < required and state 1 otherwise. The
+forced-update path is therefore neutralized by replacing only the result-forming
+instruction at main-image offset 0x155BE8:
+
+  original bytes:    14 A5 88 9A  (cinc x20, x8, lt)
+  replacement bytes: F4 03 08 AA  (mov  x20, x8)
+
+The tweak checks the four original bytes first. A different build is not patched.
