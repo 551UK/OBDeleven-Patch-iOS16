@@ -1,0 +1,79 @@
+name: Build rootless DEB
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: obdeleven-update-bypass-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Theos
+        uses: Randomblock1/theos-action@v1
+        with:
+          theos-sdks: https://github.com/theos/sdks
+          theos-sdks-branch: master
+
+      - name: Build rootless package
+        run: make clean package FINALPACKAGE=1
+
+      - name: Validate package
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install dpkg
+          debs=(packages/*.deb)
+          test "${#debs[@]}" -eq 1
+          deb="${debs[0]}"
+
+          test "$(dpkg-deb -f "$deb" Architecture)" = "iphoneos-arm64"
+          test "$(dpkg-deb -f "$deb" Package)" = "com.551.obdelevenupdatebypass"
+          dpkg-deb --info "$deb"
+          dpkg-deb -x "$deb" "$RUNNER_TEMP/obdeleven-check"
+
+          dylib="$RUNNER_TEMP/obdeleven-check/var/jb/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.dylib"
+          filter="$RUNNER_TEMP/obdeleven-check/var/jb/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.plist"
+
+          test -s "$dylib"
+          test -s "$filter"
+          xcrun lipo "$dylib" -verify_arch arm64
+          plutil -lint "$filter"
+          grep -q "com.voltasit.obdeleven.ios.basic" "$filter"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OBDelevenUpdateBypass-rootless
+          path: packages/*.deb
+          if-no-files-found: error
+
+      - name: Publish release DEB
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^Version: //p' control)"
+          tag="v${version}"
+          title="OBDeleven Update Bypass ${version}"
+          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. It patches the actual forced-update decision in ShouldUpdateApplicationUseCase and only targets com.voltasit.obdeleven.ios.basic."
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" packages/*.deb --clobber
+            gh release edit "$tag" --title "$title" --notes "$notes"
+          else
+            gh release create "$tag" packages/*.deb \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              --notes "$notes"
+          fi
