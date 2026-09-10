@@ -15,11 +15,10 @@ static NSString *const kPreferencesChangedNotification =
 static id CopyPreferenceValue(NSString *key) {
     if (key.length == 0) return nil;
 
-    CFPropertyListRef raw = CFPreferencesCopyValue(
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
+    CFPropertyListRef raw = CFPreferencesCopyAppValue(
         (__bridge CFStringRef)key,
-        (__bridge CFStringRef)kPreferencesDomain,
-        kCFPreferencesCurrentUser,
-        kCFPreferencesAnyHost);
+        (__bridge CFStringRef)kPreferencesDomain);
     if (!raw) return nil;
     return CFBridgingRelease(raw);
 }
@@ -27,17 +26,11 @@ static id CopyPreferenceValue(NSString *key) {
 static void SetPreferenceValue(NSString *key, id value) {
     if (key.length == 0) return;
 
-    CFPreferencesSetValue(
+    CFPreferencesSetAppValue(
         (__bridge CFStringRef)key,
         (__bridge CFPropertyListRef)value,
-        (__bridge CFStringRef)kPreferencesDomain,
-        kCFPreferencesCurrentUser,
-        kCFPreferencesAnyHost);
-
-    CFPreferencesSynchronize(
-        (__bridge CFStringRef)kPreferencesDomain,
-        kCFPreferencesCurrentUser,
-        kCFPreferencesAnyHost);
+        (__bridge CFStringRef)kPreferencesDomain);
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
 }
 
 static BOOL SpawnCommand(const char *path, char *const argv[]) {
@@ -55,10 +48,7 @@ static BOOL SpawnCommand(const char *path, char *const argv[]) {
 }
 
 - (void)postPreferencesChangedNotification {
-    CFPreferencesSynchronize(
-        (__bridge CFStringRef)kPreferencesDomain,
-        kCFPreferencesCurrentUser,
-        kCFPreferencesAnyHost);
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
 
     CFNotificationCenterPostNotification(
         CFNotificationCenterGetDarwinNotifyCenter(),
@@ -86,19 +76,12 @@ static BOOL SpawnCommand(const char *path, char *const argv[]) {
     SetPreferenceValue(@"enabled", @YES);
     SetPreferenceValue(@"spoofedVersion", @"2.10.0");
 
-    // Delete the old v1.0.5 build preference. v1.0.6 deliberately keeps the
-    // proven high build spoof internally so one visible version field controls
-    // the whole bypass and returning to 1.11.0 disables every spoof at once.
-    CFPreferencesSetValue(
+    // Remove the obsolete exposed build setting from older test builds.
+    CFPreferencesSetAppValue(
         CFSTR("spoofedBuild"),
         NULL,
-        (__bridge CFStringRef)kPreferencesDomain,
-        kCFPreferencesCurrentUser,
-        kCFPreferencesAnyHost);
-    CFPreferencesSynchronize(
-        (__bridge CFStringRef)kPreferencesDomain,
-        kCFPreferencesCurrentUser,
-        kCFPreferencesAnyHost);
+        (__bridge CFStringRef)kPreferencesDomain);
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
 
     [self postPreferencesChangedNotification];
     [self reloadSpecifiers];
