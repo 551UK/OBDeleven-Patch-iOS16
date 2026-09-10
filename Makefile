@@ -6,7 +6,6 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = OBDelevenUpdateBypass
 OBDelevenUpdateBypass_FILES = Tweak.m
-OBDelevenUpdateBypass_CFLAGS = -fvisibility=hidden -fobjc-arc
-OBDelevenUpdateBypass_FRAMEWORKS = UIKit Foundation
+OBDelevenUpdateBypass_CFLAGS = -fvisibility=hidden
 
 include $(THEOS_MAKE_PATH)/tweak.mk
