@@ -1,0 +1,9 @@
+Package: com.551.obdelevenupdatebypass
+Name: OBDeleven Update Bypass
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: Bypasses the forced Update Required gate in regular OBDeleven 1.11.0 by patching its actual version comparison result.
+Maintainer: 551
+Author: 551
+Section: Tweaks
+Depends: firmware (>= 16.0), ellekit
