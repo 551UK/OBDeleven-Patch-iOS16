@@ -2,25 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>English</string>
-    <key>CFBundleDisplayName</key>
-    <string>OBDeleven Update Bypass</string>
-    <key>CFBundleExecutable</key>
-    <string>OBDelevenUpdateBypassPrefs</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.551.obdelevenupdatebypassprefs</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundlePackageType</key>
-    <string>BNDL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0.8</string>
-    <key>CFBundleSignature</key>
-    <string>????</string>
-    <key>CFBundleVersion</key>
-    <string>108</string>
-    <key>NSPrincipalClass</key>
-    <string>OBDUBRootListController</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleDisplayName</key>
+	<string>OBD11 &amp; OBD11 VAG Bypass</string>
+	<key>CFBundleExecutable</key>
+	<string>OBDelevenUpdateBypassPrefs</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.551.obdelevenupdatebypassprefs</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>110</string>
+	<key>NSPrincipalClass</key>
+	<string>OBDUBRootListController</string>
 </dict>
 </plist>

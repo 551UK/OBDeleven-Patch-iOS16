@@ -1,86 +1,39 @@
-OBDeleven 1.11.0 Update Gate Analysis
-=====================================
+OBD11 & OBD11 VAG Bypass — runtime targets
 
-Inspected IPA:
-  regular OBDeleven 1.11.0
-  bundle: com.voltasit.obdeleven.ios.basic
-  CFBundleVersion: 1730903584
-  MinimumOSVersion: 16.0
+Regular app: com.voltasit.obdeleven.ios.basic / 1.11.0
+VAG app: com.voltasit.obdeleven.ios / 1.9.73 / build 1785335496
+VAG executable: OBDeleven VAG, arm64, LC_ENCRYPTION_INFO_64 cryptid=0.
 
-Relevant Swift metadata / strings:
-  ShouldUpdateApplicationUseCase
-  AppUsabilityState
-  appIsReadyToBeUsed
-  appUpdateIsRequired
-  IntroPresenter.swift
-  startUsabilityStateCheck()
-  ForceUpdateViewController
-  Update Required
+VAG static analysis (main-image offsets, not runtime patches):
+- 0x331E7C: force-update completion path reads CFBundleVersion using
+  helper 0x15E30C (NSBundle.mainBundle objectForInfoDictionaryKey:).
+- The required integer is obtained using remote-config key ios_version.
+- 0x3320BC / 0x3320C0: signed comparison of installed build vs required build;
+  completion receives currentBuild < requiredBuild.
+- 0x39DBAC: currentAppVersion reads NSBundle.infoDictionary and extracts
+  CFBundleShortVersionString. Its failure log names AppVersionUtility.swift.
+- Header keys x-mobile-app-version (0x1262CF0) and x-mobile-app-build
+  (0x1262D10) appear in the request-header enum code.
 
-1. Version decision
--------------------
+Runtime hooks:
+- NSBundle objectForInfoDictionaryKey: and infoDictionary; main bundle only.
+- CFBundleGetValueForInfoDictionaryKey; main bundle only.
+- NSURLSession dataTaskWithRequest: (+ completion variant) and
+  uploadTaskWithRequest:fromData:completionHandler:.
+- Both apps report their selected short version and build 2147483647.
+- Outgoing x-mobile-app-version uses that app's selected short version.
+- VAG additionally reports x-mobile-app-build=2147483647.
+- No binary offsets, startup-state overrides, firmware checks or vehicle
+  communication routines are patched.
 
-0x100155BE0  cmp  x19, x21
-0x100155BE4  mov  w8, #1
-0x100155BE8  cinc x20, x8, lt
+Preferences:
+- Regular: enabled / spoofedVersion. VAG: vagEnabled / vagSpoofedVersion.
+- Shared rootless preference domain com.551.obdelevenupdatebypass.
+- libSandy grants both app bundle IDs read access to the preferences file.
+- Off or a selected version equal to the actual version disables every spoof
+  in that process. Fully reopen apps to clear versions cached by their code.
+- Regular preset: 2.10.0. VAG preset: 1.9.99 (a synthetic spoof value,
+  not a claim that this is a released VAG version).
 
-Patch @ main-image +0x155BE8:
-  original:    14 A5 88 9A
-  replacement: F4 03 08 AA
-
-2. IntroPresenter usability-state result
-----------------------------------------
-
-The async usability-state result is loaded into x23 here:
-
-0x10015E778  ldr x23, [x22, #0x98]
-
-Immediately afterward the function compares x23 and dispatches it through the
-AppUsabilityState jump table:
-
-0x10015E7F4  cmp   x23, #3
-0x10015E800  add   x8, x8, #0xB38
-0x10015E808  ldrsw x10, [x8, x23, lsl #2]
-0x10015E80C  add   x9, x9, x10
-0x10015E810  br    x9
-
-No-payload state tags used by this switch:
-  0 sessionTokenExpired
-  1 appIsReadyToBeUsed
-  2 appUpdateIsRequired
-  3 userPasswordChangeIsRequired
-
-v1.0.2 patch @ main-image +0x15E778:
-  original:    D7 4E 40 F9    ldr x23, [x22, #0x98]
-  replacement: 37 00 80 D2    mov x23, #1
-
-This forces the launch routine onto the app's own normal ready-state path before
-the enum switch can select appUpdateIsRequired.
-
-3. Jump-table fallback retained from v1.0.1
--------------------------------------------
-
-Jump table @ 0x10015EB38:
-  tag 0 -> 0x10015E814
-  tag 1 -> 0x10015E908  appIsReadyToBeUsed
-  tag 2 -> 0x10015E944  appUpdateIsRequired
-  tag 3 -> 0x10015EA64
-
-Patch @ main-image +0x15EB40:
-  original:    40 01 00 00
-  replacement: 04 01 00 00
-
-4. ForceUpdateViewController presentation fallback
---------------------------------------------------
-
-The state-2 branch constructs ForceUpdateViewController and calls Objective-C
-presentation with the same ABI as:
-
-  -presentViewController:animated:completion:
-
-v1.0.2 hooks UIViewController's presentation method and UINavigationController's
-push method. A controller whose class hierarchy contains ForceUpdateViewController
-is rejected before UIKit can display it.
-
-All binary writes verify the original four bytes before patching. The tweak also
-logs when v1.0.2 loads and when a ForceUpdate controller presentation is blocked.
+Static analysis supports these hook targets. Live VAG startup and server
+acceptance must be verified on an iOS device.

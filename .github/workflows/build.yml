@@ -95,7 +95,7 @@ jobs:
 
           test "$(dpkg-deb -f "$deb" Architecture)" = "iphoneos-arm64"
           test "$(dpkg-deb -f "$deb" Package)" = "com.551.obdelevenupdatebypass"
-          test "$(dpkg-deb -f "$deb" Version)" = "1.0.8"
+          test "$(dpkg-deb -f "$deb" Version)" = "1.1.0"
           dpkg-deb -f "$deb" Depends > "$RUNNER_TEMP/deb-depends.txt"
           grep "com.opa334.libsandy" "$RUNNER_TEMP/deb-depends.txt"
           dpkg-deb --info "$deb"
@@ -141,6 +141,7 @@ jobs:
           file "$icon"
           file "$icon2"
           file "$icon3"
+          python3 scripts/verify-package.py "$RUNNER_TEMP/obdeleven-check"
           echo "Package integrity validation passed."
 
       - name: Upload build artifact
@@ -158,8 +159,8 @@ jobs:
           set -euo pipefail
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
-          title="OBDeleven Update Bypass ${version}"
-          notes="v1.0.8 keeps the confirmed-working runtime bypass unchanged and cleans up the Settings page. The visible default-version wording has been removed. The Settings icon now follows the same proven structure used by the working Replaced Screen & Battery preferences bundle: icon.png, icon@2x.png and icon@3x.png are packaged inside the preference bundle itself and the PreferenceLoader entry references icon.png. Respring and GitHub buttons remain included."
+          title="OBD11 & OBD11 VAG Bypass ${version}"
+          notes="Runtime version and build spoofing for OBDeleven and OBDeleven VAG, with independent controls for each app. Includes Settings icons, reset buttons, Respring, and a GitHub link. For rootless iOS 16 / Dopamine. Fully close and reopen each app after changing settings. VAG device confirmation is pending."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber

@@ -4,20 +4,9 @@
 #include <dlfcn.h>
 
 /*
- * OBDeleven Update Bypass v1.0.7
- * Target: regular OBDeleven 1.11.0
- * Bundle: com.voltasit.obdeleven.ios.basic
- *
- * Keeps the proven v1.0.4 bypass path:
- *   - spoof CFBundleShortVersionString through NSBundle/CFBundle
- *   - spoof CFBundleVersion with the known-working high build value
- *   - spoof x-mobile-app-version on outgoing NSURLSession requests
- *
- * Settings are the single source of truth. Because OBDeleven is an App Store
- * app and therefore sandboxed, v1.0.7 also applies a small libSandy profile and
- * reads the jailbreak's rootless preferences plist directly. This avoids the
- * per-app cfprefsd container problem that made older Settings values appear to
- * save while the injected tweak continued using its defaults.
+ * OBD11 & OBD11 VAG Bypass
+ * Per-app runtime bundle and request-header version spoofing.
+ * libSandy permits reading the shared rootless preferences from both apps.
  */
 
 static NSString *const kPreferencesDomain = @"com.551.obdelevenupdatebypass";
@@ -30,9 +19,11 @@ static NSString *const kLegacyPreferencesPath =
 static const char *kLibSandyProfileName = "OBDelevenUpdateBypass_Preferences";
 
 static NSString *const kDefaultSpoofedShortVersion = @"2.10.0";
+static NSString *const kDefaultVAGSpoofedShortVersion = @"1.9.99";
 static NSString *const kWorkingSpoofedBuildVersion = @"2147483647";
 static NSString *const kMobileVersionHeader = @"x-mobile-app-version";
 
+static BOOL gIsVAG = NO;
 static NSBundle *gMainBundle = nil;
 static BOOL gEnabled = YES;
 static NSString *gSpoofedShortVersion = nil;
@@ -42,10 +33,15 @@ static void *gLibSandyHandle = NULL;
 
 static BOOL isTargetBundle(void) {
     NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
-    return [bundleID isEqualToString:@"com.voltasit.obdeleven.ios.basic"];
+    gIsVAG = [bundleID isEqualToString:@"com.voltasit.obdeleven.ios"];
+    return gIsVAG || [bundleID isEqualToString:@"com.voltasit.obdeleven.ios.basic"];
 }
 
 #pragma mark - Preferences
+
+static NSString *defaultSpoofedVersion(void) {
+    return gIsVAG ? kDefaultVAGSpoofedShortVersion : kDefaultSpoofedShortVersion;
+}
 
 typedef int (*LibSandyApplyProfileFn)(const char *profileName);
 
@@ -147,11 +143,11 @@ static id copyPreferenceValue(NSString *key) {
 }
 
 static void reloadPreferences(void) {
-    id enabledValue = copyPreferenceValue(@"enabled");
-    id versionValue = copyPreferenceValue(@"spoofedVersion");
+    id enabledValue = copyPreferenceValue(gIsVAG ? @"vagEnabled" : @"enabled");
+    id versionValue = copyPreferenceValue(gIsVAG ? @"vagSpoofedVersion" : @"spoofedVersion");
 
     BOOL enabled = enabledValue ? [enabledValue boolValue] : YES;
-    NSString *version = sanitizedVersionString(versionValue) ?: kDefaultSpoofedShortVersion;
+    NSString *version = sanitizedVersionString(versionValue) ?: defaultSpoofedVersion();
 
     @synchronized ([NSBundle class]) {
         gEnabled = enabled;
@@ -161,7 +157,7 @@ static void reloadPreferences(void) {
 
 static NSString *currentSpoofedShortVersion(void) {
     @synchronized ([NSBundle class]) {
-        return gSpoofedShortVersion ?: kDefaultSpoofedShortVersion;
+        return gSpoofedShortVersion ?: defaultSpoofedVersion();
     }
 }
 
@@ -169,7 +165,7 @@ static BOOL spoofingEnabled(void) {
     @synchronized ([NSBundle class]) {
         if (!gEnabled) return NO;
 
-        NSString *selected = gSpoofedShortVersion ?: kDefaultSpoofedShortVersion;
+        NSString *selected = gSpoofedShortVersion ?: defaultSpoofedVersion();
         if (gActualShortVersion.length > 0 && [selected isEqualToString:gActualShortVersion]) {
             return NO;
         }
@@ -249,6 +245,9 @@ static NSURLRequest *requestBySpoofingVersionHeader(NSURLRequest *request) {
     NSMutableURLRequest *mutable = [request mutableCopy];
     [mutable setValue:currentSpoofedShortVersion()
    forHTTPHeaderField:kMobileVersionHeader];
+    if (gIsVAG) {
+        [mutable setValue:kWorkingSpoofedBuildVersion forHTTPHeaderField:@"x-mobile-app-build"];
+    }
     return mutable;
 }
 
@@ -361,7 +360,8 @@ static void OBDelevenUpdateBypassInit(void) {
         installBundleSpoofs();
         installNetworkSpoofs();
 
-        NSLog(@"[OBDelevenUpdateBypass] v1.0.7 loaded; enabled=%d selected=%@ actual=%@ active=%d build=%@ header=%@ prefsFileAccess=%d",
+        NSLog(@"[OBDelevenUpdateBypass] v1.1.0 loaded; app=%@ enabled=%d selected=%@ actual=%@ active=%d build=%@ header=%@ prefsFileAccess=%d",
+              gIsVAG ? @"VAG" : @"OBD11",
               gEnabled,
               currentSpoofedShortVersion(),
               gActualShortVersion,

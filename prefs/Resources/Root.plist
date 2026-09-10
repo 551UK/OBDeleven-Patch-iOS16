@@ -2,94 +2,132 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>items</key>
-    <array>
-        <dict>
-            <key>cell</key>
-            <string>PSGroupCell</string>
-            <key>footerText</key>
-            <string>The selected version controls the whole bypass. When enabled, it is used for CFBundleShortVersionString and x-mobile-app-version, while the known-working high CFBundleVersion is applied at the same time. Turning Enabled off, or setting the version back to the real 1.11.0, disables every spoof.</string>
-            <key>label</key>
-            <string>OBDeleven Update Bypass</string>
-        </dict>
-
-        <dict>
-            <key>cell</key>
-            <string>PSSwitchCell</string>
-            <key>defaults</key>
-            <string>com.551.obdelevenupdatebypass</string>
-            <key>key</key>
-            <string>enabled</string>
-            <key>default</key>
-            <true/>
-            <key>label</key>
-            <string>Enabled</string>
-            <key>PostNotification</key>
-            <string>com.551.obdelevenupdatebypass/preferences.changed</string>
-        </dict>
-
-        <dict>
-            <key>cell</key>
-            <string>PSGroupCell</string>
-            <key>footerText</key>
-            <string>Change this when OBDeleven starts requiring a newer app version. Fully close and reopen OBDeleven after changing it so the startup update check runs again.</string>
-            <key>label</key>
-            <string>Version Spoof</string>
-        </dict>
-
-        <dict>
-            <key>cell</key>
-            <string>PSEditTextCell</string>
-            <key>defaults</key>
-            <string>com.551.obdelevenupdatebypass</string>
-            <key>key</key>
-            <string>spoofedVersion</string>
-            <key>default</key>
-            <string>2.10.0</string>
-            <key>label</key>
-            <string>Spoofed Version</string>
-            <key>placeholder</key>
-            <string>2.10.0</string>
-            <key>PostNotification</key>
-            <string>com.551.obdelevenupdatebypass/preferences.changed</string>
-        </dict>
-
-        <dict>
-            <key>cell</key>
-            <string>PSGroupCell</string>
-            <key>footerText</key>
-            <string>Reset restores the known-working 2.10.0 spoof. Respring is included for convenience; after changing the version, fully close and reopen OBDeleven before testing the update screen.</string>
-        </dict>
-
-        <dict>
-            <key>action</key>
-            <string>resetWorkingDefaults</string>
-            <key>cell</key>
-            <string>PSButtonCell</string>
-            <key>label</key>
-            <string>Reset Spoofed Version</string>
-        </dict>
-
-        <dict>
-            <key>action</key>
-            <string>respring</string>
-            <key>cell</key>
-            <string>PSButtonCell</string>
-            <key>label</key>
-            <string>Respring</string>
-        </dict>
-
-        <dict>
-            <key>action</key>
-            <string>openGitHub</string>
-            <key>cell</key>
-            <string>PSButtonCell</string>
-            <key>label</key>
-            <string>GitHub Repository</string>
-        </dict>
-    </array>
-
-    <key>title</key>
-    <string>OBDeleven Update Bypass</string>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>OBD11</string>
+			<key>footerText</key>
+			<string>Spoofs the app version and build. Reopen the app after changes.</string>
+		</dict>
+		<dict>
+			<key>defaults</key>
+			<string>com.551.obdelevenupdatebypass</string>
+			<key>PostNotification</key>
+			<string>com.551.obdelevenupdatebypass/preferences.changed</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>key</key>
+			<string>enabled</string>
+			<key>default</key>
+			<true/>
+			<key>label</key>
+			<string>Enabled</string>
+		</dict>
+		<dict>
+			<key>defaults</key>
+			<string>com.551.obdelevenupdatebypass</string>
+			<key>PostNotification</key>
+			<string>com.551.obdelevenupdatebypass/preferences.changed</string>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>key</key>
+			<string>spoofedVersion</string>
+			<key>default</key>
+			<string>2.10.0</string>
+			<key>label</key>
+			<string>Version</string>
+			<key>placeholder</key>
+			<string>2.10.0</string>
+			<key>autocapitalizationType</key>
+			<integer>0</integer>
+			<key>autocorrectionType</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Reset Version</string>
+			<key>action</key>
+			<string>resetWorkingDefaults</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>OBD11 VAG</string>
+			<key>footerText</key>
+			<string>Spoofs the app version and build. Reopen the app after changes.</string>
+		</dict>
+		<dict>
+			<key>defaults</key>
+			<string>com.551.obdelevenupdatebypass</string>
+			<key>PostNotification</key>
+			<string>com.551.obdelevenupdatebypass/preferences.changed</string>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>key</key>
+			<string>vagEnabled</string>
+			<key>default</key>
+			<true/>
+			<key>label</key>
+			<string>Enabled</string>
+		</dict>
+		<dict>
+			<key>defaults</key>
+			<string>com.551.obdelevenupdatebypass</string>
+			<key>PostNotification</key>
+			<string>com.551.obdelevenupdatebypass/preferences.changed</string>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>key</key>
+			<string>vagSpoofedVersion</string>
+			<key>default</key>
+			<string>1.9.99</string>
+			<key>label</key>
+			<string>Version</string>
+			<key>placeholder</key>
+			<string>1.9.99</string>
+			<key>autocapitalizationType</key>
+			<integer>0</integer>
+			<key>autocorrectionType</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Reset Version</string>
+			<key>action</key>
+			<string>resetVAGDefaults</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Off, or the real app version, disables all spoofing for that app.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Respring</string>
+			<key>action</key>
+			<string>respring</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>GitHub</string>
+			<key>action</key>
+			<string>openGitHub</string>
+		</dict>
+	</array>
+	<key>title</key>
+	<string>OBD11 &amp; OBD11 VAG Bypass</string>
 </dict>
 </plist>

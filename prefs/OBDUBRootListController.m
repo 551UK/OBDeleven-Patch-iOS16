@@ -72,31 +72,34 @@ static BOOL SpawnCommand(const char *path, char *const argv[]) {
     [self postPreferencesChangedNotification];
 }
 
-- (void)resetWorkingDefaults {
-    SetPreferenceValue(@"enabled", @YES);
-    SetPreferenceValue(@"spoofedVersion", @"2.10.0");
-
-    CFPreferencesSetAppValue(
-        CFSTR("spoofedBuild"),
-        NULL,
-        (__bridge CFStringRef)kPreferencesDomain);
-    CFPreferencesAppSynchronize((__bridge CFStringRef)kPreferencesDomain);
-
+- (void)resetAppVersion:(BOOL)isVAG {
+    [self.view endEditing:YES];
+    SetPreferenceValue(isVAG ? @"vagEnabled" : @"enabled", @YES);
+    SetPreferenceValue(isVAG ? @"vagSpoofedVersion" : @"spoofedVersion",
+                       isVAG ? @"1.9.99" : @"2.10.0");
     [self postPreferencesChangedNotification];
     [self reloadSpecifiers];
 
     UIAlertController *alert =
-        [UIAlertController alertControllerWithTitle:@"Spoofed Version Reset"
-                                            message:@"Spoofed Version is now 2.10.0. Fully close and reopen OBDeleven so its startup update check runs again."
+        [UIAlertController alertControllerWithTitle:@"Version Reset"
+                                            message:isVAG ? @"Close and reopen OBD11 VAG." : @"Close and reopen OBD11."
                                      preferredStyle:UIAlertControllerStyleAlert];
-
     [alert addAction:[UIAlertAction actionWithTitle:@"OK"
                                              style:UIAlertActionStyleDefault
                                            handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
+- (void)resetWorkingDefaults {
+    [self resetAppVersion:NO];
+}
+
+- (void)resetVAGDefaults {
+    [self resetAppVersion:YES];
+}
+
 - (void)respring {
+    [self.view endEditing:YES];
     [self postPreferencesChangedNotification];
 
     char *sbreloadArgs[] = {(char *)"sbreload", NULL};
