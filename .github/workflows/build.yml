@@ -127,9 +127,9 @@ jobs:
           test -s "$prefs_info"
           test -s "$sandy_profile"
 
-          xcrun lipo -verify_arch arm64 "$dylib"
-          xcrun lipo -verify_arch arm64 "$prefs_binary"
-          xcrun lipo -verify_arch arm64e "$prefs_binary"
+          xcrun lipo "$dylib" -verify_arch arm64
+          xcrun lipo "$prefs_binary" -verify_arch arm64
+          xcrun lipo "$prefs_binary" -verify_arch arm64e
           plutil -lint "$filter"
           plutil -lint "$entry"
           plutil -lint "$prefs_root"
@@ -138,6 +138,7 @@ jobs:
 
           # The preference bundle runs inside Settings, so it must link the
           # Preferences private framework and contain an arm64e slice.
+          otool -L "$prefs_binary"
           otool -L "$prefs_binary" | grep -q "Preferences.framework/Preferences"
 
           file "$icon" | grep -q "PNG image data"
