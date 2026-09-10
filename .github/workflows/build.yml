@@ -50,7 +50,9 @@ jobs:
           plutil -lint "$filter"
           grep -q "com.voltasit.obdeleven.ios.basic" "$filter"
           strings "$dylib" | grep -q "v1.0.4 loaded"
-          strings "$dylib" | grep -q "9999999999"
+          strings "$dylib" | grep -q "2.10.0"
+          strings "$dylib" | grep -q "2147483647"
+          strings "$dylib" | grep -q "x-mobile-app-version"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -68,7 +70,7 @@ jobs:
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
           title="OBDeleven Update Bypass ${version}"
-          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.4 removes the IntroPresenter/state-machine branch patches and instead spoofs only the main app bundle's CFBundleVersion and CFBundleShortVersionString so OBDeleven's own ShouldUpdateApplicationUseCase naturally returns the non-update path. Only targets com.voltasit.obdeleven.ios.basic."
+          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.4 removes all forced ready-state/control-flow bypasses. It runtime-spoofs CFBundleShortVersionString as 2.10.0, CFBundleVersion as 2147483647, and the x-mobile-app-version request header as 2.10.0, then lets OBDeleven's original startup and update state machine run normally. Only targets com.voltasit.obdeleven.ios.basic."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber
