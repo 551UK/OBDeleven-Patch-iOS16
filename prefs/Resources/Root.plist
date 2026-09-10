@@ -8,7 +8,7 @@
             <key>cell</key>
             <string>PSGroupCell</string>
             <key>footerText</key>
-            <string>Uses the same working v1.0.4 bypass method. The selected version is spoofed everywhere v1.0.4 used 2.10.0, including CFBundleShortVersionString and the x-mobile-app-version network header.</string>
+            <string>The selected version now controls the whole working bypass. It is used for CFBundleShortVersionString and x-mobile-app-version, while the known-working CFBundleVersion spoof is applied only when spoofing is active. Setting this back to the app's real 1.11.0 disables every spoof so the Update Required screen can return.</string>
             <key>label</key>
             <string>OBDeleven Update Bypass</string>
         </dict>
@@ -18,21 +18,21 @@
             <string>PSSwitchCell</string>
             <key>default</key>
             <true/>
-            <key>defaults</key>
-            <string>com.551.obdelevenupdatebypass</string>
+            <key>getter</key>
+            <string>readPreferenceValue:</string>
             <key>key</key>
             <string>enabled</string>
             <key>label</key>
             <string>Enabled</string>
-            <key>PostNotification</key>
-            <string>com.551.obdelevenupdatebypass/preferences.changed</string>
+            <key>setter</key>
+            <string>setPreferenceValue:specifier:</string>
         </dict>
 
         <dict>
             <key>cell</key>
             <string>PSGroupCell</string>
             <key>footerText</key>
-            <string>Use a real current OBDeleven version. The same value is returned through NSBundle/CFBundle and sent as x-mobile-app-version. Fully close and reopen OBDeleven after changing it.</string>
+            <string>Default: 2.10.0. Change this when OBDeleven starts requiring a newer app version. Fully close and reopen OBDeleven after changing it. Setting it to 1.11.0 turns the runtime spoof off completely.</string>
             <key>label</key>
             <string>Version Spoof</string>
         </dict>
@@ -42,40 +42,23 @@
             <string>PSEditTextCell</string>
             <key>default</key>
             <string>2.10.0</string>
-            <key>defaults</key>
-            <string>com.551.obdelevenupdatebypass</string>
+            <key>getter</key>
+            <string>readPreferenceValue:</string>
             <key>key</key>
             <string>spoofedVersion</string>
             <key>label</key>
             <string>Spoofed Version</string>
             <key>placeholder</key>
             <string>2.10.0</string>
-            <key>PostNotification</key>
-            <string>com.551.obdelevenupdatebypass/preferences.changed</string>
-        </dict>
-
-        <dict>
-            <key>cell</key>
-            <string>PSEditTextCell</string>
-            <key>default</key>
-            <string>2147483647</string>
-            <key>defaults</key>
-            <string>com.551.obdelevenupdatebypass</string>
-            <key>key</key>
-            <string>spoofedBuild</string>
-            <key>label</key>
-            <string>Spoofed Build</string>
-            <key>placeholder</key>
-            <string>2147483647</string>
-            <key>PostNotification</key>
-            <string>com.551.obdelevenupdatebypass/preferences.changed</string>
+            <key>setter</key>
+            <string>setPreferenceValue:specifier:</string>
         </dict>
 
         <dict>
             <key>cell</key>
             <string>PSGroupCell</string>
             <key>footerText</key>
-            <string>Reset restores the exact default spoof values used by the working build: version 2.10.0 and build 2147483647.</string>
+            <string>Reset restores the known-working 2.10.0 spoof. Respring applies the preference state system-wide; you should still fully close OBDeleven before testing its startup update check.</string>
         </dict>
 
         <dict>
@@ -84,7 +67,16 @@
             <key>cell</key>
             <string>PSButtonCell</string>
             <key>label</key>
-            <string>Reset Working Defaults</string>
+            <string>Reset Working Default</string>
+        </dict>
+
+        <dict>
+            <key>action</key>
+            <string>respring</string>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>Respring</string>
         </dict>
 
         <dict>
