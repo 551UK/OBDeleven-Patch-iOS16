@@ -15,22 +15,64 @@ Relevant Swift metadata / strings in the decrypted executable:
   currentAppVersion()
   requiredVersion:
   currentAppVersion:
-  Update Required
+  AppUsabilityState
+  appIsReadyToBeUsed
+  appUpdateIsRequired
+  ForceUpdateViewController
   ForceUpdatePresenter
+  Update Required
 
-Actual decision code (unslid virtual addresses):
+1. Actual version decision
+--------------------------
+
+Unslid virtual addresses:
   0x100155BE0  cmp  x19, x21
   0x100155BE4  mov  w8, #1
   0x100155BE8  cinc x20, x8, lt
   0x100155BEC  ldr  x1, [x22, #8]
   0x100155BF0  mov  x0, x20
 
-The comparison is the installed/current build versus the required build. The
-CINC produces state 2 when current < required and state 1 otherwise. The
-forced-update path is therefore neutralized by replacing only the result-forming
-instruction at main-image offset 0x155BE8:
-
+Patch at main-image offset 0x155BE8:
   original bytes:    14 A5 88 9A  (cinc x20, x8, lt)
-  replacement bytes: F4 03 08 AA  (mov  x20, x8)
+  replacement bytes: F4 03 08 AA  (mov x20, x8)
 
-The tweak checks the four original bytes first. A different build is not patched.
+2. Final AppUsabilityState dispatch
+-----------------------------------
+
+The Swift field metadata for AppUsabilityState contains one payload case
+(errorWhileChekingState) followed by these no-payload cases:
+  sessionTokenExpired
+  appIsReadyToBeUsed
+  appUpdateIsRequired
+  userPasswordChangeIsRequired
+
+In the optimized enum representation used by IntroPresenter, those no-payload
+states dispatch as tags 0, 1, 2 and 3 respectively.
+
+IntroPresenter switch code:
+  0x10015E7F4  cmp x23, #3
+  0x10015E7FC  adrp x8, ...
+  0x10015E800  add  x8, x8, #0xB38
+  0x10015E808  ldrsw x10, [x8, x23, lsl #2]
+  0x10015E80C  add  x9, x9, x10
+  0x10015E810  br   x9
+
+Jump table @ 0x10015EB38:
+  tag 0 -> +0x010 -> 0x10015E814
+  tag 1 -> +0x104 -> 0x10015E908  (appIsReadyToBeUsed)
+  tag 2 -> +0x140 -> 0x10015E944  (appUpdateIsRequired)
+  tag 3 -> +0x260 -> 0x10015EA64
+
+The tag-2 branch at 0x10015E944 calls the metadata accessor at 0x1000C5A24.
+Resolving that Swift class descriptor identifies it as ForceUpdateViewController,
+confirming this is the exact branch that opens the full-screen Update Required UI.
+
+Patch at main-image offset 0x15EB40 (tag-2 jump-table entry):
+  original bytes:    40 01 00 00  (+0x140 -> 0x10015E944)
+  replacement bytes: 04 01 00 00  (+0x104 -> 0x10015E908)
+
+This redirects appUpdateIsRequired to the app's own appIsReadyToBeUsed path.
+It does not merely hide the ForceUpdate view after presentation.
+
+Both v1.0.1 patches check their exact original four bytes before writing. A
+binary that does not match the inspected OBDeleven 1.11.0 build is not patched.
