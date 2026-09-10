@@ -75,27 +75,50 @@ jobs:
           dpkg-deb --info "$deb"
           dpkg-deb -x "$deb" "$RUNNER_TEMP/obdeleven-check"
 
-          dylib="$RUNNER_TEMP/obdeleven-check/var/jb/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.dylib"
-          filter="$RUNNER_TEMP/obdeleven-check/var/jb/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.plist"
-          prefs="$RUNNER_TEMP/obdeleven-check/var/jb/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypassPrefs.plist"
-          icon="$RUNNER_TEMP/obdeleven-check/var/jb/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png"
+          root="$RUNNER_TEMP/obdeleven-check/var/jb"
+          dylib="$root/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.dylib"
+          filter="$root/Library/MobileSubstrate/DynamicLibraries/OBDelevenUpdateBypass.plist"
+          entry="$root/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypassPrefs.plist"
+          icon="$root/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png"
+          bundle="$root/Library/PreferenceBundles/OBDelevenUpdateBypassPrefs.bundle"
+          prefs_binary="$bundle/OBDelevenUpdateBypassPrefs"
+          prefs_root="$bundle/Root.plist"
+          prefs_info="$bundle/Info.plist"
 
           test -s "$dylib"
           test -s "$filter"
-          test -s "$prefs"
+          test -s "$entry"
           test -s "$icon"
+          test -s "$prefs_binary"
+          test -s "$prefs_root"
+          test -s "$prefs_info"
+
           xcrun lipo "$dylib" -verify_arch arm64
+          xcrun lipo "$prefs_binary" -verify_arch arm64
           plutil -lint "$filter"
-          plutil -lint "$prefs"
+          plutil -lint "$entry"
+          plutil -lint "$prefs_root"
+          plutil -lint "$prefs_info"
+
           grep -q "com.voltasit.obdeleven.ios.basic" "$filter"
-          grep -q "PSEditTextCell" "$prefs"
-          grep -q "spoofedVersion" "$prefs"
-          grep -q "OBDelevenUpdateBypass.png" "$prefs"
+          grep -q "OBDelevenUpdateBypassPrefs" "$entry"
+          grep -q "OBDelevenUpdateBypass.png" "$entry"
+          grep -q "PSSwitchCell" "$prefs_root"
+          grep -q "PSEditTextCell" "$prefs_root"
+          grep -q "spoofedVersion" "$prefs_root"
+          grep -q "spoofedBuild" "$prefs_root"
+          grep -q "x-mobile-app-version" "$prefs_root"
+          grep -q "Reset Working Defaults" "$prefs_root"
+
           strings "$dylib" | grep -q "v1.0.5 loaded"
           strings "$dylib" | grep -q "2.10.0"
           strings "$dylib" | grep -q "2147483647"
           strings "$dylib" | grep -q "x-mobile-app-version"
           strings "$dylib" | grep -q "spoofedVersion"
+          strings "$dylib" | grep -q "spoofedBuild"
+          strings "$dylib" | grep -q "objectForInfoDictionaryKey:"
+          strings "$dylib" | grep -q "dataTaskWithRequest:completionHandler:"
+          strings "$prefs_binary" | grep -q "resetWorkingDefaults"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -113,7 +136,7 @@ jobs:
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
           title="OBDeleven Update Bypass ${version}"
-          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.5 keeps the working v1.0.4 runtime-spoof method and adds a Settings pane where the spoofed app version can be changed without rebuilding the tweak. Default version is 2.10.0. CFBundleVersion remains 2147483647 and the selected version is also used for the x-mobile-app-version request header. Includes the official OBDeleven app icon in Settings. Only targets com.voltasit.obdeleven.ios.basic."
+          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.5 keeps the working v1.0.4 runtime-spoof method unchanged and adds a proper Settings page. It still spoofs CFBundleShortVersionString through NSBundle/CFBundle, CFBundleVersion, and x-mobile-app-version on outgoing NSURLSession requests. Defaults are version 2.10.0 and build 2147483647. Enabled, spoofed version, and spoofed build can now be changed in Settings without rebuilding. Includes Reset Working Defaults, GitHub link, and the official OBDeleven Settings icon. Only targets com.voltasit.obdeleven.ios.basic."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber
