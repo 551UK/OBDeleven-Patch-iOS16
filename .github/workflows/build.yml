@@ -35,11 +35,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p layout/Library/PreferenceLoader/Preferences
-          python3 - <<'PY'
+          raw="$RUNNER_TEMP/obdeleven-artwork"
+
+          python3 - "$raw" <<'PY'
           import json
           import pathlib
+          import sys
           import urllib.request
 
+          destination = pathlib.Path(sys.argv[1])
           lookup = "https://itunes.apple.com/lookup?id=1643119107&country=gb"
           request = urllib.request.Request(lookup, headers={"User-Agent": "Mozilla/5.0"})
           with urllib.request.urlopen(request, timeout=30) as response:
@@ -53,28 +57,32 @@ jobs:
           if not artwork:
               raise SystemExit("OBDeleven App Store artwork URL was missing")
 
-          destination = pathlib.Path("layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png")
           image_request = urllib.request.Request(artwork, headers={"User-Agent": "Mozilla/5.0"})
           with urllib.request.urlopen(image_request, timeout=30) as response:
               destination.write_bytes(response.read())
 
           if destination.stat().st_size < 1000:
               raise SystemExit("Downloaded OBDeleven icon is unexpectedly small")
-          print(f"Downloaded official OBDeleven icon: {destination.stat().st_size} bytes")
+          print(f"Downloaded official OBDeleven artwork: {destination.stat().st_size} bytes")
           PY
 
-          cp layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png \
-             layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@2x.png
-          cp layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png \
-             layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@3x.png
+          base="layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png"
+          icon2="layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@2x.png"
+          icon3="layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@3x.png"
 
-          /usr/bin/sips -z 29 29 layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png >/dev/null
-          /usr/bin/sips -z 58 58 layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@2x.png >/dev/null
-          /usr/bin/sips -z 87 87 layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@3x.png >/dev/null
+          # App Store artwork is normally JPEG. Convert it to real PNG data instead
+          # of merely giving JPEG bytes a .png extension, then size it as a normal
+          # 29pt PreferenceLoader icon at 1x/2x/3x.
+          /usr/bin/sips -s format png -z 29 29 "$raw" --out "$base" >/dev/null
+          /usr/bin/sips -s format png -z 58 58 "$raw" --out "$icon2" >/dev/null
+          /usr/bin/sips -s format png -z 87 87 "$raw" --out "$icon3" >/dev/null
 
-          test "$(/usr/bin/sips -g pixelWidth layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png | awk '/pixelWidth/ {print $2}')" = "29"
-          test "$(/usr/bin/sips -g pixelWidth layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@2x.png | awk '/pixelWidth/ {print $2}')" = "58"
-          test "$(/usr/bin/sips -g pixelWidth layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass@3x.png | awk '/pixelWidth/ {print $2}')" = "87"
+          test "$(/usr/bin/sips -g pixelWidth "$base" | awk '/pixelWidth/ {print $2}')" = "29"
+          test "$(/usr/bin/sips -g pixelWidth "$icon2" | awk '/pixelWidth/ {print $2}')" = "58"
+          test "$(/usr/bin/sips -g pixelWidth "$icon3" | awk '/pixelWidth/ {print $2}')" = "87"
+          file "$base" | grep -q "PNG image data"
+          file "$icon2" | grep -q "PNG image data"
+          file "$icon3" | grep -q "PNG image data"
 
       - name: Build rootless package
         run: make clean package FINALPACKAGE=1
@@ -91,6 +99,7 @@ jobs:
           test "$(dpkg-deb -f "$deb" Architecture)" = "iphoneos-arm64"
           test "$(dpkg-deb -f "$deb" Package)" = "com.551.obdelevenupdatebypass"
           test "$(dpkg-deb -f "$deb" Version)" = "1.0.7"
+          dpkg-deb -f "$deb" Depends | grep -q "com.opa334.libsandy"
           dpkg-deb --info "$deb"
           dpkg-deb -x "$deb" "$RUNNER_TEMP/obdeleven-check"
 
@@ -105,6 +114,7 @@ jobs:
           prefs_binary="$bundle/OBDelevenUpdateBypassPrefs"
           prefs_root="$bundle/Root.plist"
           prefs_info="$bundle/Info.plist"
+          sandy_profile="$root/Library/libSandy/OBDelevenUpdateBypass_Preferences.plist"
 
           test -s "$dylib"
           test -s "$filter"
@@ -115,34 +125,42 @@ jobs:
           test -s "$prefs_binary"
           test -s "$prefs_root"
           test -s "$prefs_info"
+          test -s "$sandy_profile"
 
-          xcrun lipo "$dylib" -verify_arch arm64
-          xcrun lipo "$prefs_binary" -verify_arch arm64
+          xcrun lipo -verify_arch arm64 "$dylib"
+          xcrun lipo -verify_arch arm64 "$prefs_binary"
+          xcrun lipo -verify_arch arm64e "$prefs_binary"
           plutil -lint "$filter"
           plutil -lint "$entry"
           plutil -lint "$prefs_root"
           plutil -lint "$prefs_info"
+          plutil -lint "$sandy_profile"
 
-          # The preference bundle must be linked to Apple's Preferences framework.
-          # The previous dynamic_lookup build compiled on CI but failed to load in Settings.
+          # The preference bundle runs inside Settings, so it must link the
+          # Preferences private framework and contain an arm64e slice.
           otool -L "$prefs_binary" | grep -q "Preferences.framework/Preferences"
+
+          file "$icon" | grep -q "PNG image data"
+          file "$icon2" | grep -q "PNG image data"
+          file "$icon3" | grep -q "PNG image data"
 
           grep -q "com.voltasit.obdeleven.ios.basic" "$filter"
           grep -q "OBDelevenUpdateBypassPrefs" "$entry"
+          grep -q "OBDUBRootListController" "$entry"
           grep -q "OBDelevenUpdateBypass.png" "$entry"
           grep -q "PSSwitchCell" "$prefs_root"
           grep -q "PSEditTextCell" "$prefs_root"
-          grep -q "<string>readPreferenceValue:</string>" "$prefs_root"
-          grep -q "<string>setPreferenceValue:specifier:</string>" "$prefs_root"
-          grep -q "<key>get</key>" "$prefs_root"
-          grep -q "<key>set</key>" "$prefs_root"
-          ! grep -q "<key>getter</key>" "$prefs_root"
-          ! grep -q "<key>setter</key>" "$prefs_root"
+          grep -q "<key>defaults</key>" "$prefs_root"
+          grep -q "com.551.obdelevenupdatebypass" "$prefs_root"
+          grep -q "PostNotification" "$prefs_root"
           grep -q "spoofedVersion" "$prefs_root"
           grep -q "x-mobile-app-version" "$prefs_root"
           grep -q "Reset Working Default" "$prefs_root"
           grep -q "Respring" "$prefs_root"
           grep -q "GitHub Repository" "$prefs_root"
+
+          grep -q "com.voltasit.obdeleven.ios.basic" "$sandy_profile"
+          grep -q "/var/jb/var/mobile/Library/Preferences/com.551.obdelevenupdatebypass.plist" "$sandy_profile"
 
           strings "$dylib" | grep -q "v1.0.7 loaded"
           strings "$dylib" | grep -q "2.10.0"
@@ -151,7 +169,9 @@ jobs:
           strings "$dylib" | grep -q "spoofedVersion"
           strings "$dylib" | grep -q "objectForInfoDictionaryKey:"
           strings "$dylib" | grep -q "dataTaskWithRequest:completionHandler:"
-          strings "$prefs_binary" | grep -q "setPreferenceValue:specifier:"
+          strings "$dylib" | grep -q "libSandy_applyProfile"
+          strings "$dylib" | grep -q "OBDelevenUpdateBypass_Preferences"
+          strings "$dylib" | grep -q "/var/jb/var/mobile/Library/Preferences/com.551.obdelevenupdatebypass.plist"
           strings "$prefs_binary" | grep -q "resetWorkingDefaults"
           strings "$prefs_binary" | grep -q "respring"
           strings "$prefs_binary" | grep -q "openGitHub"
@@ -172,7 +192,7 @@ jobs:
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
           title="OBDeleven Update Bypass ${version}"
-          notes="v1.0.7 repairs the Settings bundle and the preference wiring. The bundle is now linked against Apple's Preferences framework instead of using dynamic_lookup, which fixes the damaged/missing resources page. The Enabled switch and Spoofed Version field now use the correct Preferences get/set keys and persist to the same domain read by the injected tweak. Setting Spoofed Version to the real 1.11.0, or disabling the tweak, turns off CFBundleShortVersionString, CFBundleVersion and x-mobile-app-version spoofing together. Respring and GitHub buttons remain included. The official OBDeleven Settings icon is supplied at normal 29pt 1x/2x/3x sizes."
+          notes="v1.0.7 repairs both parts of Settings. The preference bundle is linked against Apple's Preferences framework and is built with arm64 + arm64e so it can load correctly inside the iOS 16 Settings process. The Settings icon is now converted to real PNG data at the normal 29pt 1x/2x/3x sizes. Enabled and Spoofed Version use standard PreferenceLoader storage. Because regular OBDeleven is a sandboxed App Store app, the tweak now uses a tightly scoped libSandy read profile to read the Dopamine rootless preference plist directly, so changing the setting actually changes CFBundleShortVersionString, CFBundleVersion and x-mobile-app-version spoofing. Setting the version back to 1.11.0 or disabling the tweak turns every spoof off. Respring and GitHub buttons remain included."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber
