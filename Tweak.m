@@ -5,7 +5,8 @@
 
 /*
  * OBD11 & OBD11 VAG Bypass
- * Per-app runtime bundle and request-header version spoofing.
+ * Applies each app's selected version to its main bundle and request headers.
+ * VAG also receives the spoofed x-mobile-app-build header.
  * libSandy permits reading the shared rootless preferences from both apps.
  */
 
