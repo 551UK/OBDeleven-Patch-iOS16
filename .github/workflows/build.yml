@@ -49,6 +49,8 @@ jobs:
           xcrun lipo "$dylib" -verify_arch arm64
           plutil -lint "$filter"
           grep -q "com.voltasit.obdeleven.ios.basic" "$filter"
+          strings "$dylib" | grep -q "v1.0.4 loaded"
+          strings "$dylib" | grep -q "9999999999"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -66,7 +68,7 @@ jobs:
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
           title="OBDeleven Update Bypass ${version}"
-          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.3 leaves the normal async startup/usability check untouched, then redirects only the final appUpdateIsRequired branch at +0x15E944 to the app's existing appIsReadyToBeUsed handler at +0x15E908. This avoids the startup hang caused by v1.0.2's early state forcing and UIKit presentation blocker. Only targets com.voltasit.obdeleven.ios.basic."
+          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.4 removes the IntroPresenter/state-machine branch patches and instead spoofs only the main app bundle's CFBundleVersion and CFBundleShortVersionString so OBDeleven's own ShouldUpdateApplicationUseCase naturally returns the non-update path. Only targets com.voltasit.obdeleven.ios.basic."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber
