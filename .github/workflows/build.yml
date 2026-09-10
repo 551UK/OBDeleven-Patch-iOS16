@@ -1,8 +1,6 @@
 name: Build rootless DEB
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -57,8 +55,6 @@ jobs:
           print(f"Downloaded official OBDeleven icon: {destination.stat().st_size} bytes")
           PY
 
-          # PreferenceLoader treats a plain PNG as a 1x image. Resize it to the
-          # normal Settings preference icon size instead of feeding it 512x512 artwork.
           /usr/bin/sips -z 29 29 layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png >/dev/null
           test "$(/usr/bin/sips -g pixelWidth layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png | awk '/pixelWidth/ {print $2}')" = "29"
           test "$(/usr/bin/sips -g pixelHeight layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png | awk '/pixelHeight/ {print $2}')" = "29"
