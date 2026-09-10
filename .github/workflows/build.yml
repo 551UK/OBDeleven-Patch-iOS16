@@ -1,3 +1,4 @@
+# Builds the rootless DEB, validates its contents and publishes the release.
 name: Build rootless DEB
 
 on:
