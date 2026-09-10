@@ -57,6 +57,12 @@ jobs:
           print(f"Downloaded official OBDeleven icon: {destination.stat().st_size} bytes")
           PY
 
+          # PreferenceLoader treats a plain PNG as a 1x image. Resize it to the
+          # normal Settings preference icon size instead of feeding it 512x512 artwork.
+          /usr/bin/sips -z 29 29 layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png >/dev/null
+          test "$(/usr/bin/sips -g pixelWidth layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png | awk '/pixelWidth/ {print $2}')" = "29"
+          test "$(/usr/bin/sips -g pixelHeight layout/Library/PreferenceLoader/Preferences/OBDelevenUpdateBypass.png | awk '/pixelHeight/ {print $2}')" = "29"
+
       - name: Build rootless package
         run: make clean package FINALPACKAGE=1
 
@@ -71,7 +77,7 @@ jobs:
 
           test "$(dpkg-deb -f "$deb" Architecture)" = "iphoneos-arm64"
           test "$(dpkg-deb -f "$deb" Package)" = "com.551.obdelevenupdatebypass"
-          test "$(dpkg-deb -f "$deb" Version)" = "1.0.5"
+          test "$(dpkg-deb -f "$deb" Version)" = "1.0.6"
           dpkg-deb --info "$deb"
           dpkg-deb -x "$deb" "$RUNNER_TEMP/obdeleven-check"
 
@@ -106,19 +112,22 @@ jobs:
           grep -q "PSSwitchCell" "$prefs_root"
           grep -q "PSEditTextCell" "$prefs_root"
           grep -q "spoofedVersion" "$prefs_root"
-          grep -q "spoofedBuild" "$prefs_root"
           grep -q "x-mobile-app-version" "$prefs_root"
-          grep -q "Reset Working Defaults" "$prefs_root"
+          grep -q "Reset Working Default" "$prefs_root"
+          grep -q "Respring" "$prefs_root"
+          grep -q "GitHub Repository" "$prefs_root"
 
-          strings "$dylib" | grep -q "v1.0.5 loaded"
+          strings "$dylib" | grep -q "v1.0.6 loaded"
           strings "$dylib" | grep -q "2.10.0"
           strings "$dylib" | grep -q "2147483647"
           strings "$dylib" | grep -q "x-mobile-app-version"
           strings "$dylib" | grep -q "spoofedVersion"
-          strings "$dylib" | grep -q "spoofedBuild"
           strings "$dylib" | grep -q "objectForInfoDictionaryKey:"
           strings "$dylib" | grep -q "dataTaskWithRequest:completionHandler:"
+          strings "$prefs_binary" | grep -q "setPreferenceValue:specifier:"
           strings "$prefs_binary" | grep -q "resetWorkingDefaults"
+          strings "$prefs_binary" | grep -q "respring"
+          strings "$prefs_binary" | grep -q "openGitHub"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -136,7 +145,7 @@ jobs:
           version="$(sed -n 's/^Version: //p' control)"
           tag="v${version}"
           title="OBDeleven Update Bypass ${version}"
-          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.5 keeps the working v1.0.4 runtime-spoof method unchanged and adds a proper Settings page. It still spoofs CFBundleShortVersionString through NSBundle/CFBundle, CFBundleVersion, and x-mobile-app-version on outgoing NSURLSession requests. Defaults are version 2.10.0 and build 2147483647. Enabled, spoofed version, and spoofed build can now be changed in Settings without rebuilding. Includes Reset Working Defaults, GitHub link, and the official OBDeleven Settings icon. Only targets com.voltasit.obdeleven.ios.basic."
+          notes="Rootless Dopamine/ElleKit tweak for regular OBDeleven 1.11.0 on iOS 16. v1.0.6 fixes the Settings wiring so the selected version is actually read by the injected tweak. Spoofed Version controls the runtime version/header spoof, and setting it back to the app's real 1.11.0 disables every spoof and restores the original bundle/network values. The known-working 2147483647 CFBundleVersion spoof remains active only while a newer version is selected. Also adds a Respring button, GitHub Repository button, and resizes the official OBDeleven Settings icon to the normal PreferenceLoader size."
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" packages/*.deb --clobber
