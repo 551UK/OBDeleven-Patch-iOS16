@@ -10,3 +10,6 @@ OBDelevenUpdateBypass_CFLAGS = -fvisibility=hidden -fobjc-arc
 OBDelevenUpdateBypass_FRAMEWORKS = Foundation CoreFoundation
 
 include $(THEOS_MAKE_PATH)/tweak.mk
+
+SUBPROJECTS += prefs
+include $(THEOS_MAKE_PATH)/aggregate.mk
