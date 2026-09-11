@@ -1,4 +1,4 @@
-,# OBD11 & OBD11 VAG Bypass
+OBD11 & OBD11 VAG Bypass
 
 Bypasses the **Update Required** screen in OBDeleven and OBDeleven VAG by making each app report a newer version and build number.
 
