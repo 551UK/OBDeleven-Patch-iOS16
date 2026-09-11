@@ -1,0 +1,47 @@
+name: Build eBayCompat14 rootful
+
+on:
+  push:
+    branches: [ebay-compat-rootful-build]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Theos
+        uses: Randomblock1/theos-action@v1
+        with:
+          theos-sdks: https://github.com/theos/sdks
+          theos-sdks-branch: master
+
+      - name: Build rootful package
+        working-directory: scratch-ebaycompat
+        run: |
+          chmod 755 layout/DEBIAN/postinst
+          make clean package FINALPACKAGE=1
+
+      - name: Validate package
+        working-directory: scratch-ebaycompat
+        run: |
+          set -euo pipefail
+          brew install dpkg
+          debs=(packages/*.deb)
+          test "${#debs[@]}" -eq 1
+          dpkg-deb -f "${debs[0]}" Package | grep -qx 'com.551.ebaycompat14'
+          dpkg-deb -f "${debs[0]}" Architecture | grep -qx 'iphoneos-arm'
+          dpkg-deb -x "${debs[0]}" "$RUNNER_TEMP/ebaycompat-check"
+          test -s "$RUNNER_TEMP/ebaycompat-check/Library/MobileSubstrate/DynamicLibraries/eBayCompat14.dylib"
+          test -s "$RUNNER_TEMP/ebaycompat-check/Library/MobileSubstrate/DynamicLibraries/eBayCompat14.plist"
+          xcrun lipo "$RUNNER_TEMP/ebaycompat-check/Library/MobileSubstrate/DynamicLibraries/eBayCompat14.dylib" -verify_arch arm64 arm64e
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eBayCompat14-rootful
+          path: scratch-ebaycompat/packages/*.deb
+          if-no-files-found: error
