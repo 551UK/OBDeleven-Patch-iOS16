@@ -313,6 +313,16 @@ static CFTypeRef EB_CFBundleGetValueForInfoDictionaryKey(CFBundleRef bundle, CFS
 
 %end
 
+#pragma mark - NSURLSession default-header path
+
+%hook NSURLSessionConfiguration
+
+- (void)setHTTPAdditionalHeaders:(NSDictionary *)headers {
+    %orig(EBRewriteHeaders(headers));
+}
+
+%end
+
 #pragma mark - NSURLSession send paths
 
 %hook NSURLSession
@@ -377,6 +387,15 @@ static CFTypeRef EB_CFBundleGetValueForInfoDictionaryKey(CFBundleRef bundle, CFS
 %end
 
 #pragma mark - Web-backed eBay screens
+
+%hook WKWebViewConfiguration
+
+- (void)setApplicationNameForUserAgent:(NSString *)applicationNameForUserAgent {
+    NSString *rewritten = EBTransportOSRewrite(EBReplaceOldVersions(applicationNameForUserAgent));
+    %orig(rewritten);
+}
+
+%end
 
 %hook WKWebView
 
