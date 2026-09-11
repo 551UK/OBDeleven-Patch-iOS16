@@ -336,6 +336,15 @@ static CFTypeRef EB_CFBundleGetValueForInfoDictionaryKey(CFBundleRef bundle, CFS
     return %orig(EBRewriteRequest(request));
 }
 
+- (NSURLSessionDataTask *)dataTaskWithURL:(NSURL *)url
+                         completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
+    return %orig(EBRewriteURL(url), completionHandler);
+}
+
+- (NSURLSessionDataTask *)dataTaskWithURL:(NSURL *)url {
+    return %orig(EBRewriteURL(url));
+}
+
 - (NSURLSessionUploadTask *)uploadTaskWithRequest:(NSURLRequest *)request
                                          fromData:(NSData *)bodyData
                                 completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
@@ -351,6 +360,21 @@ static CFTypeRef EB_CFBundleGetValueForInfoDictionaryKey(CFBundleRef bundle, CFS
     return %orig(rewritten, body);
 }
 
+- (NSURLSessionUploadTask *)uploadTaskWithRequest:(NSURLRequest *)request
+                                         fromFile:(NSURL *)fileURL
+                                completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
+    return %orig(EBRewriteRequest(request), fileURL, completionHandler);
+}
+
+- (NSURLSessionUploadTask *)uploadTaskWithRequest:(NSURLRequest *)request
+                                         fromFile:(NSURL *)fileURL {
+    return %orig(EBRewriteRequest(request), fileURL);
+}
+
+- (NSURLSessionUploadTask *)uploadTaskWithStreamedRequest:(NSURLRequest *)request {
+    return %orig(EBRewriteRequest(request));
+}
+
 - (NSURLSessionDownloadTask *)downloadTaskWithRequest:(NSURLRequest *)request
                                     completionHandler:(void (^)(NSURL *, NSURLResponse *, NSError *))completionHandler {
     return %orig(EBRewriteRequest(request), completionHandler);
@@ -358,6 +382,15 @@ static CFTypeRef EB_CFBundleGetValueForInfoDictionaryKey(CFBundleRef bundle, CFS
 
 - (NSURLSessionDownloadTask *)downloadTaskWithRequest:(NSURLRequest *)request {
     return %orig(EBRewriteRequest(request));
+}
+
+- (NSURLSessionDownloadTask *)downloadTaskWithURL:(NSURL *)url
+                                 completionHandler:(void (^)(NSURL *, NSURLResponse *, NSError *))completionHandler {
+    return %orig(EBRewriteURL(url), completionHandler);
+}
+
+- (NSURLSessionDownloadTask *)downloadTaskWithURL:(NSURL *)url {
+    return %orig(EBRewriteURL(url));
 }
 
 %end
