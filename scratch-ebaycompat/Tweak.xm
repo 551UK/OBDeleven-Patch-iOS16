@@ -222,24 +222,24 @@ static NSData *EBRewriteBody(NSData *body, NSURL *url) {
 static NSURLRequest *EBRewriteRequest(NSURLRequest *request) {
     if (!request) return request;
 
-    NSMutableURLRequest *mutable = [request mutableCopy];
-    if (!mutable) return request;
+    NSMutableURLRequest *mutableRequest = [request mutableCopy];
+    if (!mutableRequest) return request;
 
-    NSURL *newURL = EBRewriteURL(mutable.URL);
-    if (newURL && ![newURL isEqual:mutable.URL]) mutable.URL = newURL;
+    NSURL *newURL = EBRewriteURL(mutableRequest.URL);
+    if (newURL && ![newURL isEqual:mutableRequest.URL]) mutableRequest.URL = newURL;
 
-    NSDictionary *headers = EBRewriteHeaders(mutable.allHTTPHeaderFields);
-    if (headers) mutable.allHTTPHeaderFields = headers;
+    NSDictionary *headers = EBRewriteHeaders(mutableRequest.allHTTPHeaderFields);
+    if (headers) mutableRequest.allHTTPHeaderFields = headers;
 
-    NSData *body = mutable.HTTPBody;
-    NSData *rewrittenBody = EBRewriteBody(body, mutable.URL);
+    NSData *body = mutableRequest.HTTPBody;
+    NSData *rewrittenBody = EBRewriteBody(body, mutableRequest.URL);
     if (rewrittenBody && rewrittenBody != body && ![rewrittenBody isEqualToData:body]) {
-        mutable.HTTPBody = rewrittenBody;
-        [mutable setValue:[NSString stringWithFormat:@"%lu", (unsigned long)rewrittenBody.length]
+        mutableRequest.HTTPBody = rewrittenBody;
+        [mutableRequest setValue:[NSString stringWithFormat:@"%lu", (unsigned long)rewrittenBody.length]
        forHTTPHeaderField:@"Content-Length"];
     }
 
-    return mutable;
+    return mutableRequest;
 }
 
 #pragma mark - CFBundle version path
