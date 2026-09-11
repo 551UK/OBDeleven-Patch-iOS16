@@ -1,0 +1,9 @@
+Package: com.551.ebaycompat14
+Name: eBay Compat 14
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Compatibility patch for the old iOS 14 eBay app. Fully spoofs the app version in eBay bundles and network requests to improve server compatibility on iOS 14.
+Maintainer: 551UK
+Author: 551UK
+Section: Tweaks
+Depends: mobilesubstrate
